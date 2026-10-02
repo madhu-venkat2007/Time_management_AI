@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tempo — Student Time Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: { ink:'#131311', muted:'#7A776F', line:'#E9E7E2', paper:'#F7F7F5', card:'#FFFFFF', sage:'#4A6741', clay:'#C14A2E', amber2:'#9A7B2E' },
+      fontFamily: { sans:['Inter','sans-serif'], tight:['Inter Tight','sans-serif'], serif:['Instrument Serif','serif'] },
+      boxShadow: { soft:'0 1px 2px rgba(19,19,17,0.04), 0 12px 32px -16px rgba(19,19,17,0.12)', lift:'0 20px 50px -20px rgba(19,19,17,0.25)' }
+    }
+  }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  *{ -webkit-tap-highlight-color: transparent; }
+  html,body{ height:100%; }
+  body{ background:#F7F7F5; color:#131311; font-family:Inter,sans-serif; letter-spacing:-0.01em; overflow:hidden; }
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:#D8D5CE; border-radius:99px; }
+  ::-webkit-scrollbar-thumb:hover{ background:#B9B5AC; }
+  .micro{ font-size:11px; letter-spacing:0.14em; text-transform:uppercase; font-weight:600; color:#7A776F; }
+  .serif-accent{ font-family:'Instrument Serif',serif; font-style:italic; font-weight:400; }
+  .card{ background:#fff; border:1px solid #E9E7E2; border-radius:20px; box-shadow:0 1px 2px rgba(19,19,17,.04), 0 12px 32px -16px rgba(19,19,17,.08); }
+  .btn-ink{ background:#131311; color:#fff; border-radius:999px; font-weight:600; font-size:13.5px; padding:10px 18px; transition:.2s; display:inline-flex; align-items:center; gap:8px; }
+  .btn-ink:hover{ background:#000; transform:translateY(-1px); box-shadow:0 10px 20px -10px rgba(0,0,0,.4); }
+  .btn-ink:active{ transform:translateY(0); }
+  .btn-ghost{ background:#fff; border:1px solid #E9E7E2; border-radius:999px; font-weight:600; font-size:13.5px; padding:10px 18px; transition:.2s; display:inline-flex; align-items:center; gap:8px; }
+  .btn-ghost:hover{ border-color:#131311; }
+  .btn-soft{ background:#EDEBE6; color:#131311; border-radius:999px; font-weight:600; font-size:13px; padding:8px 16px; transition:.2s; }
+  .btn-soft:hover{ background:#E0DDD6; }
+  .icon-btn{ width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:12px; border:1px solid #E9E7E2; background:#fff; transition:.2s; }
+  .icon-btn:hover{ border-color:#131311; transform:translateY(-1px); }
+  .nav-item{ display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:14px; font-size:14px; font-weight:500; color:#5B5851; transition:.2s; cursor:pointer; border:1px solid transparent; width:100%; text-align:left; }
+  .nav-item:hover{ background:#fff; color:#131311; border-color:#E9E7E2; }
+  .nav-item.active{ background:#131311; color:#fff; box-shadow:0 10px 20px -10px rgba(0,0,0,.4); }
+  .nav-item.active .nav-count{ background:rgba(255,255,255,.18); color:#fff; }
+  .nav-count{ margin-left:auto; font-size:11px; font-weight:700; background:#EDEBE6; color:#5B5851; padding:2px 8px; border-radius:99px; }
+  .view{ animation:viewIn .45s cubic-bezier(.22,1,.36,1); }
+  @keyframes viewIn{ from{ opacity:0; transform:translateY(12px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes fadeUp{ from{ opacity:0; transform:translateY(10px);} to{ opacity:1; transform:translateY(0);} }
+  .fade-up{ animation:fadeUp .4s cubic-bezier(.22,1,.36,1) both; }
+  /* Timeline */
+  .tl-hour{ border-top:1px solid #EDEBE6; position:relative; }
+  .tl-hour span{ position:absolute; top:-9px; left:0; font-size:11px; font-weight:600; color:#A8A59E; background:#F7F7F5; padding-right:8px; }
+  .task-block{ position:absolute; border-radius:14px; border:1px solid #E9E7E2; background:#fff; padding:10px 12px; cursor:pointer; transition:.2s; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.04); }
+  .task-block:hover{ transform:scale(1.01); border-color:#131311; box-shadow:0 8px 24px -8px rgba(0,0,0,.15); z-index:20; }
+  .task-block.done{ opacity:.55; }
+  .task-block.done .tb-title{ text-decoration:line-through; }
+  .now-line{ position:absolute; left:48px; right:0; height:2px; background:#C14A2E; z-index:15; border-radius:99px; }
+  .now-line::before{ content:''; position:absolute; left:-5px; top:-4px; width:10px; height:10px; background:#C14A2E; border-radius:99px; }
+  /* Checkbox */
+  .check{ width:20px; height:20px; border-radius:99px; border:1.5px solid #D0CCC4; display:flex; align-items:center; justify-content:center; transition:.2s; flex-shrink:0; cursor:pointer; background:#fff; }
+  .check:hover{ border-color:#131311; transform:scale(1.1); }
+  .check.done{ background:#131311; border-color:#131311; color:#fff; }
+  /* Chat */
+  .bubble-agent{ background:#fff; border:1px solid #E9E7E2; border-radius:4px 18px 18px 18px; padding:12px 14px; font-size:13.5px; line-height:1.6; max-width:92%; box-shadow:0 2px 8px rgba(0,0,0,.03); }
+  .bubble-user{ background:#131311; color:#fff; border-radius:18px 4px 18px 18px; padding:12px 14px; font-size:13.5px; line-height:1.6; max-width:88%; margin-left:auto; }
+  .typing-dots{ display:flex; gap:4px; padding:14px; background:#fff; border:1px solid #E9E7E2; border-radius:4px 18px 18px 18px; width:fit-content; }
+  .typing-dots span{ width:6px; height:6px; background:#B9B5AC; border-radius:99px; animation:blink 1.2s infinite; }
+  .typing-dots span:nth-child(2){ animation-delay:.2s; } .typing-dots span:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{ 0%,80%,100%{ opacity:.3; transform:scale(.8);} 40%{ opacity:1; transform:scale(1.2);} }
+  .chip{ font-size:12px; font-weight:600; border:1px solid #E9E7E2; background:#fff; padding:7px 12px; border-radius:99px; white-space:nowrap; cursor:pointer; transition:.2s; }
+  .chip:hover{ background:#131311; color:#fff; border-color:#131311; }
+  .action-card{ background:#F7F7F5; border:1px solid #E9E7E2; border-radius:14px; padding:12px; margin-top:10px; }
+  .action-btn{ font-size:12px; font-weight:700; padding:8px 14px; border-radius:99px; transition:.2s; cursor:pointer; }
+  .action-btn.primary{ background:#131311; color:#fff; } .action-btn.primary:hover{ background:#000; }
+  .action-btn.secondary{ background:#fff; border:1px solid #E9E7E2; } .action-btn.secondary:hover{ border-color:#131311; }
+  /* Habits */
+  .habit-dot{ width:32px; height:32px; border-radius:11px; border:1px solid #E9E7E2; background:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#A8A59E; cursor:pointer; transition:.18s; }
+  .habit-dot:hover{ border-color:#131311; color:#131311; transform:scale(1.05); }
+  .habit-dot.on{ background:#131311; border-color:#131311; color:#fff; }
+  .habit-dot.today{ border-color:#131311; border-width:1.5px; }
+  /* Quadrants */
+  .quad{ background:#fff; border:1px solid #E9E7E2; border-radius:18px; min-height:220px; padding:14px; transition:.2s; }
+  .quad.drag-over{ border-color:#131311; background:#F7F7F5; border-style:dashed; transform:scale(1.01); }
+  .mini-task{ background:#F7F7F5; border:1px solid #E9E7E2; border-radius:12px; padding:10px 12px; font-size:13px; cursor:grab; transition:.2s; }
+  .mini-task:hover{ border-color:#131311; transform:translateY(-1px); background:#fff; }
+  .mini-task:active{ cursor:grabbing; }
+  .mini-task.dragging{ opacity:.4; transform:scale(.98); }
+  /* Inputs */
+  .inp{ width:100%; background:#F7F7F5; border:1px solid #E9E7E2; border-radius:12px; padding:10px 14px; font-size:14px; outline:none; transition:.2s; }
+  .inp:focus{ background:#fff; border-color:#131311; box-shadow:0 0 0 3px rgba(19,19,17,.06); }
+  select.inp{ appearance:none; }
+  .prio-btn{ flex:1; padding:9px; border-radius:12px; border:1px solid #E9E7E2; font-size:13px; font-weight:600; cursor:pointer; transition:.2s; background:#fff; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .prio-btn.sel-high{ background:#131311; color:#fff; border-color:#131311; }
+  .prio-btn.sel-medium{ background:#131311; color:#fff; border-color:#131311; }
+  .prio-btn.sel-low{ background:#131311; color:#fff; border-color:#131311; }
+  .dot{ width:8px; height:8px; border-radius:99px; }
+  /* Timer */
+  .timer-ring{ transform:rotate(-90deg); }
+  .timer-ring circle{ transition:stroke-dashoffset .5s linear; }
+  /* Modal */
+  .modal-bg{ background:rgba(19,19,17,.4); backdrop-filter:blur(8px); animation:fadeUp .25s; }
+  .modal-card{ animation:popIn .35s cubic-bezier(.22,1,.36,1); }
+  @keyframes popIn{ from{ opacity:0; transform:translateY(20px) scale(.97);} to{ opacity:1; transform:translateY(0) scale(1);} }
+  /* Toast */
+  .toast{ background:#131311; color:#fff; padding:12px 18px; border-radius:14px; font-size:13.5px; font-weight:500; display:flex; align-items:center; gap:10px; box-shadow:0 16px 40px -12px rgba(0,0,0,.4); animation:toastIn .35s cubic-bezier(.22,1,.36,1); max-width:360px; }
+  @keyframes toastIn{ from{ opacity:0; transform:translateY(16px) scale(.95);} to{ opacity:1; transform:translateY(0) scale(1);} }
+  .toast.out{ opacity:0; transform:translateY(10px); transition:.3s; }
+  /* Palette */
+  .pal-item{ display:flex; align-items:center; gap:12px; padding:11px 12px; border-radius:12px; cursor:pointer; font-size:14px; transition:.15s; }
+  .pal-item:hover,.pal-item.sel{ background:#131311; color:#fff; }
+  .pal-item:hover .pal-hint,.pal-item.sel .pal-hint{ color:rgba(255,255,255,.6); }
+  .pal-hint{ margin-left:auto; font-size:11px; color:#A8A59E; font-weight:600; }
+  /* Progress */
+  .pbar{ height:6px; background:#EDEBE6; border-radius:99px; overflow:hidden; }
+  .pbar > div{ height:100%; background:#131311; border-radius:99px; transition:width .8s cubic-bezier(.22,1,.36,1); }
+  .pbar.sage > div{ background:#4A6741; }
+  /* Week grid */
+  .day-col{ position:relative; border-left:1px solid #EDEBE6; cursor:pointer; }
+  .day-col.today-col{ background:rgba(19,19,17,.02); }
+  .day-col:hover{ background:rgba(19,19,17,.03); }
+  .hour-line{ border-top:1px solid #EDEBE6; height:56px; }
+  .sched-block{ position:absolute; left:4px; right:4px; border-radius:10px; padding:6px 8px; font-size:11px; font-weight:600; line-height:1.3; border:1px solid; cursor:pointer; overflow:hidden; transition:.2s; z-index:5; }
+  .sched-block:hover{ transform:scale(1.02); z-index:10; box-shadow:0 8px 20px -8px rgba(0,0,0,.2); }
+  kbd{ font-size:10px; font-weight:700; background:#EDEBE6; padding:2px 6px; border-radius:6px; }
+  .energy-opt{ border:1px solid #E9E7E2; border-radius:12px; padding:8px; font-size:12px; font-weight:600; cursor:pointer; text-align:center; transition:.2s; background:#fff; }
+  .energy-opt.sel{ background:#131311; color:#fff; border-color:#131311; }
+  .stat-num{ font-family:'Inter Tight'; font-weight:700; letter-spacing:-0.04em; }
+  .mit-slot{ border:1.5px dashed #D8D5CE; border-radius:16px; padding:14px; transition:.2s; }
+  .mit-slot.filled{ border-style:solid; border-color:#E9E7E2; background:#fff; }
+  .divider{ height:1px; background:#E9E7E2; }
+  @media (max-width:1023px){ body{ overflow:auto; } #app{ height:auto; min-height:100vh; } }
+</style>
+</head>
+<body>
+
+<div id="app" class="flex h-screen w-full">
+
+  <!-- SIDEBAR -->
+  <aside class="hidden lg:flex flex-col w-[248px] shrink-0 border-r border-line bg-paper/60 backdrop-blur p-5 gap-6 overflow-y-auto">
+    <div class="flex items-center gap-2.5 px-1">
+      <div class="w-9 h-9 bg-ink text-white rounded-[12px] flex items-center justify-center font-tight font-bold text-lg">T<span class="text-[#C9C5BC]">.</span></div>
+      <div>
+        <div class="font-tight font-bold text-[17px] leading-none tracking-tight">Tempo</div>
+        <div class="text-[11px] text-muted font-medium mt-0.5">Student time agent</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="micro px-2 mb-2">Menu</div>
+      <nav class="flex flex-col gap-1" id="sideNav">
+        <button data-view="today" class="nav-item active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Today<span class="nav-count" id="countToday">0</span></button>
+        <button data-view="schedule" class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>Schedule</button>
+        <button data-view="priorities" class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2H22l-6 4.4 2.3 7.4-6.3-4.6-6.3 4.6L8 13.6 2 9.2h7.6z"/></svg>Priorities<span class="nav-count" id="countPrio">0</span></button>
+        <button data-view="habits" class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 01-4 4H3"/></svg>Habits<span class="nav-count" id="countHabit">0</span></button>
+        <button data-view="focus" class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>Focus</button>
+        <button data-view="insights" class="nav-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Insights</button>
+      </nav>
+    </div>
+
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-1">
+        <div class="micro">Auto-plan</div>
+        <div class="w-2 h-2 rounded-full bg-sage animate-pulse"></div>
+      </div>
+      <p class="text-[13px] leading-snug text-[#3A3835] mb-3">Let the agent arrange today around your energy and deadlines.</p>
+      <button onclick="triggerAutoPlan()" class="btn-ink w-full justify-center !text-[13px]">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
+        Plan my day
+      </button>
+      <div class="flex gap-1.5 mt-2 text-[11px] text-muted justify-center items-center"><kbd>⌘</kbd><kbd>P</kbd><span>to auto-plan</span></div>
+    </div>
+
+    <div>
+      <div class="micro px-2 mb-2">Peak energy</div>
+      <div class="grid grid-cols-3 gap-2" id="energyPicker">
+        <div class="energy-opt" data-e="morning">Morning</div>
+        <div class="energy-opt" data-e="afternoon">Afternoon</div>
+        <div class="energy-opt" data-e="evening">Evening</div>
+      </div>
+    </div>
+
+    <div class="mt-auto">
+      <div class="card p-4 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-ink text-white flex items-center justify-center font-bold text-sm" id="avatarInit">M</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-[13.5px] font-semibold truncate" id="userName">Maya Chen</div>
+          <div class="text-[11.5px] text-muted">Junior · CS + Design</div>
+        </div>
+        <button class="icon-btn !w-8 !h-8" onclick="openPalette()" title="Command palette"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+      </div>
+      <div class="text-center text-[11px] text-muted mt-3 font-medium">Less, but better.</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 flex flex-col min-w-0 h-screen lg:h-screen">
+    <!-- Topbar -->
+    <header class="shrink-0 border-b border-line bg-paper/80 backdrop-blur-md px-4 lg:px-8 py-3.5 flex items-center gap-3 z-20">
+      <div class="lg:hidden flex items-center gap-2">
+        <div class="w-8 h-8 bg-ink text-white rounded-[10px] flex items-center justify-center font-bold">T.</div>
+        <span class="font-tight font-bold">Tempo</span>
+      </div>
+      <div class="hidden md:flex items-center gap-2 text-[13px] font-medium text-muted">
+        <span id="topDate" class="bg-white border border-line px-3 py-1.5 rounded-full">—</span>
+        <span id="topWeek" class="hidden xl:inline">Week 6 · Fall term</span>
+      </div>
+      <button onclick="openPalette()" class="hidden sm:flex flex-1 max-w-md mx-auto items-center gap-2.5 bg-white border border-line rounded-full px-4 py-2 text-[13px] text-muted hover:border-ink transition">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <span class="flex-1 text-left">Search, add task, jump to…</span>
+        <kbd>⌘K</kbd>
+      </button>
+      <div class="flex-1 sm:hidden"></div>
+      <div class="flex items-center gap-2">
+        <div class="hidden md:flex items-center gap-1.5 bg-white border border-line rounded-full px-3 py-1.5 text-[12.5px] font-semibold" title="Day streak">
+          <span class="dot bg-clay"></span><span id="streakPill">0 day streak</span>
+        </div>
+        <div class="hidden md:flex items-center gap-1.5 bg-white border border-line rounded-full px-3 py-1.5 text-[12.5px] font-semibold" title="Focus today">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/></svg><span id="focusPill">0m focused</span>
+        </div>
+        <button onclick="toggleAgent()" class="icon-btn relative" title="Toggle agent">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 01-8 8H5l-2 2V12a8 8 0 018-8h2a8 8 0 018 8z"/></svg>
+          <span id="agentDot" class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-sage rounded-full border-2 border-paper"></span>
+        </button>
+        <button onclick="openTaskModal()" class="btn-ink !py-2.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg><span class="hidden sm:inline">New task</span></button>
+      </div>
+    </header>
+
+    <!-- Views container -->
+    <div class="flex-1 overflow-y-auto px-4 lg:px-8 py-6 pb-28 lg:pb-10" id="scrollMain">
+
+      <!-- TODAY -->
+      <section id="view-today" class="view max-w-[1100px] mx-auto">
+        <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+          <div>
+            <div class="micro mb-1.5" id="todayKicker">Friday · October 2</div>
+            <h1 class="font-tight font-bold text-[32px] lg:text-[40px] tracking-tight leading-none"><span id="greeting">Good morning</span>, <span class="serif-accent font-normal" id="greetName">Maya</span>.</h1>
+            <p class="text-muted text-[14px] mt-2 max-w-md" id="todaySub">3 priorities · 4h 20m planned · 2 habits left. Keep it light.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="card px-4 py-3 flex items-center gap-3">
+              <div class="relative w-12 h-12">
+                <svg class="w-12 h-12 -rotate-90" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" fill="none" stroke="#EDEBE6" stroke-width="3.5"/><circle id="dayRing" cx="18" cy="18" r="15.5" fill="none" stroke="#131311" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="97.4" stroke-dashoffset="97.4"/></svg>
+                <span class="absolute inset-0 flex items-center justify-center text-[11px] font-bold" id="dayPct">0%</span>
+              </div>
+              <div><div class="text-[13px] font-bold" id="dayDoneLabel">0 of 0 done</div><div class="text-[11.5px] text-muted">Today's progress</div></div>
+            </div>
+            <button onclick="triggerAutoPlan()" class="btn-ghost hidden sm:inline-flex">Auto-plan</button>
+          </div>
+        </div>
+
+        <div class="grid lg:grid-cols-[1fr_330px] gap-5 items-start">
+          <div class="card p-5 lg:p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div class="micro">Timeline · Today</div>
+              <div class="flex items-center gap-2 text-[12px] font-semibold text-muted"><span class="dot bg-clay"></span>Now · <span id="clockNow">--:--</span></div>
+            </div>
+            <div id="todayTimeline" class="relative"></div>
+          </div>
+
+          <div class="flex flex-col gap-5">
+            <div class="card p-5">
+              <div class="flex items-center justify-between mb-3"><div class="micro">Top 3 · Must do</div><button onclick="switchView('priorities')" class="text-[12px] font-bold hover:underline">Edit</button></div>
+              <div id="todayMIT" class="flex flex-col gap-2"></div>
+            </div>
+            <div class="card p-5">
+              <div class="flex items-center justify-between mb-3"><div class="micro">Inbox · Unscheduled</div><span class="text-[12px] font-bold text-muted" id="inboxCount"></span></div>
+              <div id="todayInbox" class="flex flex-col gap-2"></div>
+              <button onclick="openTaskModal()" class="w-full mt-3 text-[13px] font-semibold border border-dashed border-[#D0CCC4] rounded-xl py-2.5 hover:border-ink transition">+ Add task</button>
+            </div>
+            <div class="card p-5">
+              <div class="micro mb-3">Upcoming deadlines</div>
+              <div id="deadlineList" class="flex flex-col gap-2.5"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCHEDULE -->
+      <section id="view-schedule" class="view max-w-[1200px] mx-auto hidden">
+        <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+          <div>
+            <div class="micro mb-1.5">Time blocking</div>
+            <h1 class="font-tight font-bold text-[32px] tracking-tight">Schedule <span class="serif-accent font-normal text-muted">your week</span></h1>
+            <p class="text-muted text-[14px] mt-1.5">Click any empty slot to block time. Drag focus where it matters.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="shiftWeek(-1)" class="icon-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <button onclick="shiftWeek(0)" class="btn-soft" id="weekLabel">This week</button>
+            <button onclick="shiftWeek(1)" class="icon-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+            <button onclick="openTaskModal()" class="btn-ink">+ Block time</button>
+          </div>
+        </div>
+        <div class="card overflow-hidden">
+          <div class="flex items-center gap-4 px-5 py-3 border-b border-line text-[12px] font-semibold text-muted overflow-x-auto">
+            <span class="flex items-center gap-1.5"><span class="dot" style="background:#131311"></span>Deep Work</span>
+            <span class="flex items-center gap-1.5"><span class="dot" style="background:#4A6741"></span>Class</span>
+            <span class="flex items-center gap-1.5"><span class="dot" style="background:#9A7B2E"></span>Admin</span>
+            <span class="flex items-center gap-1.5"><span class="dot" style="background:#C14A2E"></span>Personal</span>
+            <span class="flex items-center gap-1.5"><span class="dot" style="background:#7A776F"></span>Health</span>
+            <span class="ml-auto hidden sm:inline">7:00 — 22:00</span>
+          </div>
+          <div class="overflow-x-auto"><div class="min-w-[860px]" id="weekGrid"></div></div>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-4 mt-4">
+          <div class="card p-4"><div class="micro mb-1">Planned this week</div><div class="stat-num text-[28px]" id="schedHours">0h</div><div class="text-[12px] text-muted">across <span id="schedCount">0</span> blocks</div></div>
+          <div class="card p-4"><div class="micro mb-1">Deep work</div><div class="stat-num text-[28px]" id="schedDeep">0h</div><div class="text-[12px] text-muted">target 12h / week</div><div class="pbar mt-2"><div id="schedDeepBar" style="width:0%"></div></div></div>
+          <div class="card p-4"><div class="micro mb-1">Free space</div><div class="stat-num text-[28px]" id="schedFree">0h</div><div class="text-[12px] text-muted">protect your whitespace</div></div>
+        </div>
+      </section>
+
+      <!-- PRIORITIES -->
+      <section id="view-priorities" class="view max-w-[1100px] mx-auto hidden">
+        <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+          <div>
+            <div class="micro mb-1.5">Decide what matters</div>
+            <h1 class="font-tight font-bold text-[32px] tracking-tight">Priorities <span class="serif-accent font-normal text-muted">first</span></h1>
+            <p class="text-muted text-[14px] mt-1.5">Pick three must-dos. Drag the rest into the matrix.</p>
+          </div>
+          <button onclick="agentPrioritize()" class="btn-ink"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Ask agent to rank</button>
+        </div>
+        <div class="micro mb-2">Most important tasks</div>
+        <div class="grid sm:grid-cols-3 gap-3 mb-6" id="mitGrid"></div>
+        <div class="flex items-center justify-between mb-2"><div class="micro">Eisenhower matrix · drag to move</div><div class="text-[12px] text-muted font-medium hidden sm:block">Tip: most students live in Q3. Move one thing to Q2 today.</div></div>
+        <div class="grid sm:grid-cols-2 gap-4" id="matrixGrid">
+          <div class="quad" data-quad="Q1" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropQuad(event,'Q1')"><div class="flex items-center gap-2 mb-1"><span class="dot bg-clay"></span><span class="text-[13px] font-bold">Q1 · Do now</span><span class="text-[11px] text-muted ml-auto">Urgent + Important</span></div><div class="text-[12px] text-muted mb-3">Deadlines, exams, crises.</div><div class="flex flex-col gap-2" id="quad-Q1"></div></div>
+          <div class="quad" data-quad="Q2" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropQuad(event,'Q2')"><div class="flex items-center gap-2 mb-1"><span class="dot bg-sage"></span><span class="text-[13px] font-bold">Q2 · Schedule</span><span class="text-[11px] text-muted ml-auto">Important, not urgent</span></div><div class="text-[12px] text-muted mb-3">Deep study, projects, health.</div><div class="flex flex-col gap-2" id="quad-Q2"></div></div>
+          <div class="quad" data-quad="Q3" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropQuad(event,'Q3')"><div class="flex items-center gap-2 mb-1"><span class="dot" style="background:#9A7B2E"></span><span class="text-[13px] font-bold">Q3 · Delegate</span><span class="text-[11px] text-muted ml-auto">Urgent, less important</span></div><div class="text-[12px] text-muted mb-3">Messages, small admin, favors.</div><div class="flex flex-col gap-2" id="quad-Q3"></div></div>
+          <div class="quad" data-quad="Q4" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropQuad(event,'Q4')"><div class="flex items-center gap-2 mb-1"><span class="dot bg-[#D0CCC4]"></span><span class="text-[13px] font-bold">Q4 · Eliminate</span><span class="text-[11px] text-muted ml-auto">Neither</span></div><div class="text-[12px] text-muted mb-3">Scroll, busywork, maybe-later.</div><div class="flex flex-col gap-2" id="quad-Q4"></div></div>
+        </div>
+      </section>
+
+      <!-- HABITS -->
+      <section id="view-habits" class="view max-w-[1000px] mx-auto hidden">
+        <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+          <div>
+            <div class="micro mb-1.5">Small steps, daily</div>
+            <h1 class="font-tight font-bold text-[32px] tracking-tight">Habits <span class="serif-accent font-normal text-muted">that stick</span></h1>
+            <p class="text-muted text-[14px] mt-1.5">Tap a day to check in. Streaks build quietly.</p>
+          </div>
+          <button onclick="openHabitModal()" class="btn-ink">+ New habit</button>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-4 mb-5">
+          <div class="card p-5"><div class="micro mb-1">Today</div><div class="stat-num text-[30px]"><span id="habitTodayDone">0</span><span class="text-muted text-[18px]">/<span id="habitTotal">0</span></span></div><div class="pbar mt-2 sage"><div id="habitTodayBar" style="width:0%"></div></div></div>
+          <div class="card p-5"><div class="micro mb-1">Best streak</div><div class="stat-num text-[30px]"><span id="habitBest">0</span><span class="text-muted text-[16px] font-sans font-medium"> days</span></div><div class="text-[12px] text-muted mt-1" id="habitBestName">—</div></div>
+          <div class="card p-5"><div class="micro mb-1">Week completion</div><div class="stat-num text-[30px]" id="habitWeekPct">0%</div><div class="text-[12px] text-muted mt-1">across all habits</div></div>
+        </div>
+        <div class="flex flex-col gap-3" id="habitList"></div>
+        <div class="card p-5 mt-4 flex flex-wrap items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-ink text-white flex items-center justify-center font-bold">T.</div>
+          <p class="text-[13.5px] flex-1 min-w-[220px]" id="habitTip">Habit stacking works: attach a new habit to one you already do — e.g. “After coffee, I review notes for 10 minutes.”</p>
+          <button onclick="agentHabitCoach()" class="btn-ghost !py-2">Get coaching</button>
+        </div>
+      </section>
+
+      <!-- FOCUS -->
+      <section id="view-focus" class="view max-w-[900px] mx-auto hidden">
+        <div class="text-center mb-6">
+          <div class="micro mb-1.5">Single-tasking</div>
+          <h1 class="font-tight font-bold text-[32px] tracking-tight">Focus <span class="serif-accent font-normal text-muted">session</span></h1>
+          <p class="text-muted text-[14px] mt-1.5">One task. One timer. No noise.</p>
+        </div>
+        <div class="grid lg:grid-cols-[1fr_300px] gap-5 items-start">
+          <div class="card p-8 flex flex-col items-center">
+            <div class="flex gap-2 mb-6" id="presetRow">
+              <button data-min="15" class="preset btn-soft">15m</button>
+              <button data-min="25" class="preset btn-soft !bg-ink !text-white">25m</button>
+              <button data-min="50" class="preset btn-soft">50m</button>
+              <button data-min="90" class="preset btn-soft">90m</button>
+            </div>
+            <div class="relative w-[240px] h-[240px] mb-6">
+              <svg class="timer-ring w-full h-full" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="88" fill="none" stroke="#EDEBE6" stroke-width="10"/>
+                <circle id="focusRing" cx="100" cy="100" r="88" fill="none" stroke="#131311" stroke-width="10" stroke-linecap="round" stroke-dasharray="553" stroke-dashoffset="0"/>
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <div class="stat-num text-[52px] leading-none tabular-nums" id="focusTime">25:00</div>
+                <div class="micro mt-2" id="focusState">Ready</div>
+              </div>
+            </div>
+            <select id="focusTaskSelect" class="inp max-w-sm text-center font-semibold mb-4"></select>
+            <div class="flex gap-2.5">
+              <button id="focusStart" onclick="toggleFocus()" class="btn-ink !px-8 !py-3">Start focus</button>
+              <button onclick="resetFocus()" class="btn-ghost !py-3">Reset</button>
+            </div>
+            <div class="text-[12px] text-muted mt-4 font-medium" id="focusHint">Tip: silence notifications. The agent will guard your time.</div>
+          </div>
+          <div class="flex flex-col gap-4">
+            <div class="card p-5"><div class="micro mb-2">Today's focus</div><div class="stat-num text-[36px]" id="focusTodayStat">0m</div><div class="text-[12px] text-muted"><span id="focusSessStat">0</span> sessions · Goal 120m</div><div class="pbar mt-3"><div id="focusGoalBar" style="width:0%"></div></div></div>
+            <div class="card p-5"><div class="micro mb-3">Recent sessions</div><div id="focusHistory" class="flex flex-col gap-2.5"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- INSIGHTS -->
+      <section id="view-insights" class="view max-w-[1100px] mx-auto hidden">
+        <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+          <div>
+            <div class="micro mb-1.5">Reflection</div>
+            <h1 class="font-tight font-bold text-[32px] tracking-tight">Insights <span class="serif-accent font-normal text-muted">at a glance</span></h1>
+            <p class="text-muted text-[14px] mt-1.5">Calm data. No guilt, just patterns.</p>
+          </div>
+          <div class="text-[12px] font-semibold text-muted bg-white border border-line rounded-full px-4 py-2">Last 7 days</div>
+        </div>
+        <div class="grid sm:grid-cols-4 gap-4 mb-5" id="insightStats"></div>
+        <div class="grid lg:grid-cols-2 gap-4 mb-4">
+          <div class="card p-5"><div class="micro mb-1">Time by category</div><div class="h-[240px]"><canvas id="chartCategory"></canvas></div></div>
+          <div class="card p-5"><div class="micro mb-1">Focus hours · this week</div><div class="h-[240px]"><canvas id="chartFocus"></canvas></div></div>
+        </div>
+        <div class="grid lg:grid-cols-[1fr_340px] gap-4">
+          <div class="card p-5"><div class="micro mb-1">Task completion trend</div><div class="h-[200px]"><canvas id="chartTrend"></canvas></div></div>
+          <div class="card p-5"><div class="micro mb-3">Agent notes</div><div id="insightNotes" class="flex flex-col gap-3 text-[13.5px] leading-relaxed"></div></div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Mobile bottom nav -->
+    <nav class="lg:hidden shrink-0 border-t border-line bg-white/90 backdrop-blur px-2 py-2 flex justify-around fixed bottom-0 left-0 right-0 z-30" id="mobileNav">
+      <button data-view="today" class="mnav flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-ink"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Today</button>
+      <button data-view="schedule" class="mnav flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-muted"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 10h18"/></svg>Plan</button>
+      <button data-view="priorities" class="mnav flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-muted"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2H22l-6 4.4 2.3 7.4-6.3-4.6-6.3 4.6L8 13.6 2 9.2h7.6z"/></svg>Top 3</button>
+      <button data-view="habits" class="mnav flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-muted"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 014-4h14"/></svg>Habits</button>
+      <button data-view="focus" class="mnav flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-muted"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/></svg>Focus</button>
+    </nav>
+  </main>
+
+  <!-- AGENT PANEL -->
+  <aside id="agentPanel" class="hidden lg:flex flex-col w-[370px] shrink-0 border-l border-line bg-white h-screen">
+    <div class="px-5 pt-5 pb-4 border-b border-line">
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <div class="w-10 h-10 bg-ink text-white rounded-full flex items-center justify-center font-bold text-[15px]">T.</div>
+          <span class="absolute bottom-0 right-0 w-3 h-3 bg-sage rounded-full border-2 border-white"></span>
+        </div>
+        <div class="flex-1">
+          <div class="font-bold text-[15px] leading-none">Tempo Agent</div>
+          <div class="text-[12px] text-sage font-semibold mt-1 flex items-center gap-1"><span class="w-1.5 h-1.5 bg-sage rounded-full animate-pulse"></span>Online · knows your week</div>
+        </div>
+        <button onclick="agentBrief()" class="btn-soft !text-[12px]" title="Daily brief">Brief</button>
+      </div>
+      <div class="mt-3 bg-paper border border-line rounded-2xl p-3 flex gap-3 items-start">
+        <svg class="shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A6741" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>
+        <p class="text-[12.5px] leading-snug text-[#3A3835]" id="agentBriefLine">—</p>
+      </div>
+    </div>
+    <div id="agentMessages" class="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3"></div>
+    <div class="px-4 pb-2 flex gap-2 overflow-x-auto" id="agentChips" style="scrollbar-width:none;">
+      <button class="chip" onclick="quickAsk('Plan my day')">Plan my day</button>
+      <button class="chip" onclick="quickAsk('I have an exam in 4 days')">Exam in 4 days</button>
+      <button class="chip" onclick="quickAsk(`I'm overwhelmed`)">Overwhelmed</button>
+      <button class="chip" onclick="quickAsk('Break down my essay')">Break down essay</button>
+      <button class="chip" onclick="quickAsk('Help me build a study habit')">New habit</button>
+    </div>
+    <div class="p-4 border-t border-line">
+      <div class="flex items-end gap-2 bg-paper border border-line rounded-2xl p-2 pl-4 focus-within:border-ink focus-within:bg-white transition">
+        <textarea id="agentInput" rows="1" placeholder="Ask Tempo anything…" class="flex-1 bg-transparent outline-none text-[13.5px] resize-none py-2 max-h-[100px]"></textarea>
+        <button onclick="sendAgent()" class="w-9 h-9 bg-ink text-white rounded-xl flex items-center justify-center hover:bg-black transition shrink-0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+      </div>
+      <div class="text-center text-[11px] text-muted mt-2">Agent can schedule, prioritize & create habits.</div>
+    </div>
+  </aside>
+</div>
+
+<!-- Mobile agent FAB + overlay -->
+<button onclick="toggleAgentMobile()" class="lg:hidden fixed bottom-20 right-4 z-40 w-14 h-14 bg-ink text-white rounded-full shadow-lift flex items-center justify-center font-bold text-lg">T.</button>
+<div id="agentMobile" class="lg:hidden hidden fixed inset-0 z-50 flex flex-col bg-white">
+  <div class="px-5 py-4 border-b border-line flex items-center gap-3">
+    <div class="w-9 h-9 bg-ink text-white rounded-full flex items-center justify-center font-bold text-sm">T.</div>
+    <div class="flex-1"><div class="font-bold text-[15px]">Tempo Agent</div><div class="text-[12px] text-sage font-semibold">Online</div></div>
+    <button onclick="toggleAgentMobile()" class="icon-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div id="agentMessagesM" class="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3"></div>
+  <div class="p-4 border-t border-line">
+    <div class="flex gap-2 mb-2 overflow-x-auto"><button class="chip" onclick="quickAsk('Plan my day')">Plan my day</button><button class="chip" onclick="quickAsk('I have an exam in 4 days')">Exam plan</button><button class="chip" onclick="quickAsk(`I'm overwhelmed`)">Overwhelmed</button></div>
+    <div class="flex items-end gap-2 bg-paper border border-line rounded-2xl p-2 pl-4"><textarea id="agentInputM" rows="1" placeholder="Ask Tempo…" class="flex-1 bg-transparent outline-none text-[14px] resize-none py-2"></textarea><button onclick="sendAgent(true)" class="w-9 h-9 bg-ink text-white rounded-xl flex items-center justify-center shrink-0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></button></div>
+  </div>
+</div>
+
+<!-- TASK MODAL -->
+<div id="taskModal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-6">
+  <div class="absolute inset-0 modal-bg" onclick="closeTaskModal()"></div>
+  <div class="modal-card relative bg-white w-full sm:max-w-[520px] rounded-t-[24px] sm:rounded-[24px] p-6 max-h-[92vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4"><h3 class="font-tight font-bold text-[20px]" id="taskModalTitle">New task</h3><button onclick="closeTaskModal()" class="icon-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="flex flex-col gap-3.5">
+      <div><label class="micro">Title</label><input id="mTitle" class="inp mt-1.5 font-medium" placeholder="e.g. Calculus — review Chapter 7"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="micro">Course</label><select id="mCourse" class="inp mt-1.5"><option>Calculus</option><option>Physics</option><option>History</option><option>Literature</option><option>Computer Science</option><option>Biology</option><option>General</option></select></div>
+        <div><label class="micro">Category</label><select id="mCategory" class="inp mt-1.5"><option>Deep Work</option><option>Class</option><option>Admin</option><option>Personal</option><option>Health</option></select></div>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div><label class="micro">Date</label><input id="mDate" type="date" class="inp mt-1.5"></div>
+        <div><label class="micro">Start</label><input id="mStart" type="time" class="inp mt-1.5" value="09:00"></div>
+        <div><label class="micro">Length</label><select id="mDuration" class="inp mt-1.5"><option value="15">15m</option><option value="25">25m</option><option value="30">30m</option><option value="45">45m</option><option value="60" selected>60m</option><option value="90">90m</option><option value="120">2h</option></select></div>
+      </div>
+      <label class="flex items-center gap-2.5 text-[13px] font-medium cursor-pointer bg-paper border border-line rounded-xl px-3 py-2.5"><input type="checkbox" id="mUnscheduled" class="w-4 h-4 accent-black">Leave unscheduled (inbox)</label>
+      <div><label class="micro">Priority</label><div class="grid grid-cols-3 gap-2 mt-1.5" id="mPrioRow">
+        <button class="prio-btn" data-p="high"><span class="dot bg-clay"></span>High</button>
+        <button class="prio-btn" data-p="medium"><span class="dot" style="background:#9A7B2E"></span>Medium</button>
+        <button class="prio-btn" data-p="low"><span class="dot bg-[#B9B5AC]"></span>Low</button>
+      </div></div>
+      <label class="flex items-center gap-2.5 text-[13px] font-medium cursor-pointer bg-paper border border-line rounded-xl px-3 py-2.5"><input type="checkbox" id="mMit" class="w-4 h-4 accent-black">Mark as Top 3 for the day</label>
+      <div><label class="micro">Notes</label><textarea id="mNotes" rows="2" class="inp mt-1.5" placeholder="What does 'done' look like?"></textarea></div>
+      <div class="flex gap-2 pt-1">
+        <button id="mDelete" onclick="deleteTask()" class="hidden btn-ghost !text-clay !border-[#E9CFC8]">Delete</button>
+        <div class="flex-1"></div>
+        <button onclick="closeTaskModal()" class="btn-ghost">Cancel</button>
+        <button onclick="saveTask()" class="btn-ink">Save task</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HABIT MODAL -->
+<div id="habitModal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-6">
+  <div class="absolute inset-0 modal-bg" onclick="closeHabitModal()"></div>
+  <div class="modal-card relative bg-white w-full sm:max-w-[420px] rounded-t-[24px] sm:rounded-[24px] p-6">
+    <div class="flex items-center justify-between mb-4"><h3 class="font-tight font-bold text-[20px]">New habit</h3><button onclick="closeHabitModal()" class="icon-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="flex flex-col gap-3.5">
+      <div><label class="micro">Habit name</label><input id="hName" class="inp mt-1.5 font-medium" placeholder="e.g. Review notes for 10 min"></div>
+      <div><label class="micro">Icon</label><div class="grid grid-cols-6 gap-2 mt-1.5" id="hIconRow"></div></div>
+      <div><label class="micro">Target per week</label><select id="hTarget" class="inp mt-1.5"><option value="3">3× per week</option><option value="5">5× per week</option><option value="7" selected>Daily</option></select></div>
+      <div class="bg-paper border border-line rounded-xl p-3 text-[12.5px] text-[#3A3835] leading-relaxed">Start tiny. Two minutes counts. Consistency beats intensity — the agent will remind you gently.</div>
+      <div class="flex gap-2"><div class="flex-1"></div><button onclick="closeHabitModal()" class="btn-ghost">Cancel</button><button onclick="saveHabit()" class="btn-ink">Create habit</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div id="palette" class="hidden fixed inset-0 z-[70] flex items-start justify-center pt-[12vh] px-4">
+  <div class="absolute inset-0 modal-bg" onclick="closePalette()"></div>
+  <div class="modal-card relative bg-white w-full max-w-[560px] rounded-[20px] shadow-lift overflow-hidden">
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-line">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A776F" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="paletteInput" class="flex-1 outline-none text-[15px] font-medium" placeholder="Type a command or search tasks…">
+      <kbd>esc</kbd>
+    </div>
+    <div id="paletteList" class="max-h-[340px] overflow-y-auto p-2"></div>
+    <div class="px-5 py-2.5 border-t border-line flex gap-4 text-[11px] text-muted font-semibold"><span><kbd>↑↓</kbd> navigate</span><span><kbd>↵</kbd> select</span><span><kbd>N</kbd> new task</span></div>
+  </div>
+</div>
+
+<div id="toasts" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] flex flex-col gap-2 items-center"></div>
+
+<script>
+/* ============ HELPERS ============ */
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const uid = () => Math.random().toString(36).slice(2,9);
+const pad = n => String(n).padStart(2,'0');
+function isoOf(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function todayISO(off=0){ const d=new Date(); d.setDate(d.getDate()+off); return isoOf(d); }
+function parseISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtShort(iso){ return parseISO(iso).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
+function fmtLong(iso){ return parseISO(iso).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}); }
+function timeToMin(t){ if(!t) return null; const [h,m]=t.split(':').map(Number); return h*60+m; }
+function minToTime(m){ m=((m%1440)+1440)%1440; return pad(Math.floor(m/60))+':'+pad(m%60); }
+function fmt12(t){ if(!t) return ''; let [h,m]=t.split(':').map(Number); const ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+pad(m)+' '+ap; }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const PRIO = { high:{label:'High',color:'#C14A2E',bg:'#FDF0EC'}, medium:{label:'Medium',color:'#9A7B2E',bg:'#FBF6E7'}, low:{label:'Low',color:'#7A776F',bg:'#F3F2EF'} };
+const CATC = { 'Deep Work':'#131311', 'Class':'#4A6741', 'Admin':'#9A7B2E', 'Personal':'#C14A2E', 'Health':'#7A776F' };
+
+/* ============ STATE ============ */
+let state=null, weekOffset=0, editingTaskId=null, selectedPrio='medium', selectedHabitIcon='◐', currentView='today';
+let charts={};
+let focus={ total:25*60, left:25*60, running:false, taskId:null, timer:null };
+
+function seed(){
+  const t0=todayISO(0),t1=todayISO(1),t2=todayISO(2),t3=todayISO(3);
+  const mk=(o)=>Object.assign({id:uid(),done:false,mit:false,quadrant:null,notes:'',deadline:null},o);
+  const tasks=[
+    mk({title:'Calculus — Chapter 7 review',course:'Calculus',category:'Deep Work',duration:60,priority:'high',date:t0,start:'09:00',mit:true,deadline:t2,notes:'Focus on integrals + practice set p.214'}),
+    mk({title:'History essay — outline draft',course:'History',category:'Deep Work',duration:45,priority:'high',date:t0,start:'10:30',mit:true,deadline:t3,notes:'Thesis + 3 arguments + sources'}),
+    mk({title:'Physics problem set 6',course:'Physics',category:'Deep Work',duration:90,priority:'medium',date:t0,start:'14:00',mit:true,deadline:t1}),
+    mk({title:'Literature — read pp.120–150',course:'Literature',category:'Personal',duration:40,priority:'low',date:t0,start:null}),
+    mk({title:'Anki review — bio terms',course:'Biology',category:'Admin',duration:20,priority:'medium',date:t0,start:null}),
+    mk({title:'Gym — upper body',course:'General',category:'Health',duration:45,priority:'low',date:t0,start:'18:00'}),
+    mk({title:'CS lab prep — recursion',course:'Computer Science',category:'Deep Work',duration:60,priority:'high',date:t1,start:'10:00',deadline:t1}),
+    mk({title:'Group meeting — econ project',course:'General',category:'Class',duration:45,priority:'medium',date:t1,start:'15:00'}),
+    mk({title:'Calculus midterm — mock test',course:'Calculus',category:'Deep Work',duration:90,priority:'high',date:t2,start:'09:30',deadline:t2}),
+    mk({title:'Reply to advisor email',course:'General',category:'Admin',duration:15,priority:'low',date:t0,start:null}),
+    mk({title:'Tidy desk + plan tomorrow',course:'General',category:'Personal',duration:15,priority:'low',date:t0,start:'21:30'}),
+  ];
+  const habits=[
+    {id:uid(),name:'Deep work 90 min',icon:'◉',target:5,log:{}},
+    {id:uid(),name:'Review notes 10 min',icon:'✎',target:7,log:{}},
+    {id:uid(),name:'Read 20 pages',icon:'❝',target:5,log:{}},
+    {id:uid(),name:'Move / exercise',icon:'↗',target:4,log:{}},
+    {id:uid(),name:'No phone first hour',icon:'○',target:7,log:{}},
+  ];
+  // seed past logs
+  for(let i=6;i>=1;i--){
+    const d=todayISO(-i);
+    habits.forEach((h,hi)=>{ if(Math.random() > (hi===4?0.5:0.35)) h.log[d]=true; });
+  }
+  habits[0].log[t0]=false; habits[1].log[t0]=true;
+  return { tasks, habits, focusSessions:[
+    {date:todayISO(-4),minutes:50,label:'Physics set'},{date:todayISO(-3),minutes:75,label:'Essay draft'},
+    {date:todayISO(-2),minutes:100,label:'Calculus'},{date:todayISO(-1),minutes:60,label:'CS lab'},
+    {date:t0,minutes:25,label:'Morning review'},
+  ], energy:'morning', name:'Maya Chen', agent:[], streak:4, briefed:false };
+}
+function save(){ try{ localStorage.setItem('tempo_v1', JSON.stringify(state)); }catch(e){} }
+function load(){ try{ const s=localStorage.getItem('tempo_v1'); return s?JSON.parse(s):null; }catch(e){ return null; } }
+
+/* ============ TOAST ============ */
+function toast(msg, icon='✓'){
+  const el=document.createElement('div'); el.className='toast';
+  el.innerHTML=`<span class="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center text-[12px] font-bold shrink-0">${icon}</span><span>${msg}</span>`;
+  $('#toasts').appendChild(el);
+  setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),320); }, 2800);
+}
+
+/* ============ NAV ============ */
+function switchView(v){
+  currentView=v;
+  $$('#sideNav .nav-item').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+  $$('#mobileNav .mnav').forEach(b=>{ const on=b.dataset.view===v; b.classList.toggle('text-ink',on); b.classList.toggle('text-muted',!on); });
+  ['today','schedule','priorities','habits','focus','insights'].forEach(x=>$('#view-'+x).classList.toggle('hidden', x!==v));
+  $('#scrollMain').scrollTop=0;
+  if(v==='insights') renderInsights();
+  if(v==='schedule') renderSchedule();
+  if(v==='focus') renderFocusMeta();
+}
+$$('#sideNav .nav-item').forEach(b=>b.onclick=()=>switchView(b.dataset.view));
+$$('#mobileNav .mnav').forEach(b=>b.onclick=()=>switchView(b.dataset.view));
+
+/* ============ TODAY ============ */
+function tasksFor(date){ return state.tasks.filter(t=>t.date===date); }
+function updateCounts(){
+  const t=todayISO(0);
+  $('#countToday').textContent = tasksFor(t).filter(x=>!x.done).length;
+  $('#countPrio').textContent = state.tasks.filter(x=>x.priority==='high'&&!x.done).length;
+  const doneH = state.habits.filter(h=>h.log[t]).length;
+  $('#countHabit').textContent = (state.habits.length-doneH)+' left';
+  $('#streakPill').textContent = state.streak+' day streak';
+  const fm = state.focusSessions.filter(s=>s.date===t).reduce((a,s)=>a+s.minutes,0);
+  $('#focusPill').textContent = fm+'m focused';
+}
+function renderToday(){
+  const t=todayISO(0);
+  const list=tasksFor(t);
+  const done=list.filter(x=>x.done).length;
+  const pct=list.length?Math.round(done/list.length*100):0;
+  $('#dayPct').textContent=pct+'%';
+  $('#dayRing').style.strokeDashoffset = 97.4 - (97.4*pct/100);
+  $('#dayDoneLabel').textContent=`${done} of ${list.length} done`;
+  const planned=list.filter(x=>x.start).reduce((a,x)=>a+x.duration,0);
+  const h=Math.floor(planned/60), m=planned%60;
+  const mitN=list.filter(x=>x.mit&&!x.done).length;
+  const habLeft=state.habits.filter(h=>!h.log[t]).length;
+  $('#todaySub').textContent=`${mitN} priorities · ${h}h ${pad(m)}m planned · ${habLeft} habits left. Keep it light.`;
+  // MIT
+  const mits=state.tasks.filter(x=>x.mit&&!x.done).slice(0,3);
+  $('#todayMIT').innerHTML = mits.length? mits.map((x,i)=>`
+    <div class="flex items-center gap-3 bg-paper border border-line rounded-xl px-3 py-2.5 fade-up" style="animation-delay:${i*60}ms">
+      <span class="text-[11px] font-bold text-muted w-4">${i+1}</span>
+      <div class="check ${x.done?'done':''}" onclick="toggleTask('${x.id}')">${x.done?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>':''}</div>
+      <div class="flex-1 min-w-0 cursor-pointer" onclick="openTaskModal('${x.id}')"><div class="text-[13px] font-semibold truncate">${esc(x.title)}</div><div class="text-[11px] text-muted">${x.start?fmt12(x.start)+' · ':''}${x.duration}m · ${esc(x.course)}</div></div>
+      <span class="dot shrink-0" style="background:${PRIO[x.priority].color}"></span>
+    </div>`).join('')
+    : `<div class="text-[13px] text-muted bg-paper border border-dashed border-[#D0CCC4] rounded-xl p-4 text-center">No top 3 set.<br><button onclick="switchView('priorities')" class="font-bold text-ink underline mt-1">Choose priorities</button></div>`;
+  // Inbox
+  const inbox=state.tasks.filter(x=>!x.start&&!x.done&&(x.date===t||!x.date));
+  $('#inboxCount').textContent=inbox.length?inbox.length+' open':'clear';
+  $('#todayInbox').innerHTML = inbox.length? inbox.map(x=>`
+    <div class="flex items-center gap-2.5 group bg-white border border-line rounded-xl px-3 py-2.5 hover:border-ink transition">
+      <div class="check" onclick="toggleTask('${x.id}')"></div>
+      <div class="flex-1 min-w-0 cursor-pointer" onclick="openTaskModal('${x.id}')"><div class="text-[13px] font-semibold truncate">${esc(x.title)}</div><div class="text-[11px] text-muted">${x.duration}m · ${esc(x.course)} · <span style="color:${PRIO[x.priority].color}" class="font-bold">${PRIO[x.priority].label}</span></div></div>
+      <button onclick="scheduleTask('${x.id}')" class="text-[11px] font-bold bg-paper border border-line rounded-full px-2.5 py-1 opacity-0 group-hover:opacity-100 hover:bg-ink hover:text-white transition" title="Auto-schedule">Schedule</button>
+    </div>`).join('')
+    : `<div class="text-[13px] text-muted text-center py-3">Inbox zero. Beautiful.</div>`;
+  // Deadlines
+  const withDl=state.tasks.filter(x=>x.deadline&&!x.done).sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,4);
+  $('#deadlineList').innerHTML = withDl.length? withDl.map(x=>{
+    const days=Math.round((parseISO(x.deadline)-parseISO(t))/86400000);
+    const label=days===0?'Today':days===1?'Tomorrow':`In ${days}d`;
+    const urgent=days<=1;
+    return `<div class="flex items-center gap-3"><div class="w-11 shrink-0 text-center ${urgent?'bg-ink text-white':'bg-paper border border-line'} rounded-lg py-1.5"><div class="text-[13px] font-bold leading-none">${days<=0?'!':days}</div><div class="text-[9px] font-bold uppercase tracking-wide opacity-70">${days<=1?'soon':'days'}</div></div><div class="flex-1 min-w-0 cursor-pointer" onclick="openTaskModal('${x.id}')"><div class="text-[13px] font-semibold truncate">${esc(x.title)}</div><div class="text-[11.5px] text-muted">${esc(x.course)} · due ${fmtShort(x.deadline)} · ${label}</div></div></div>`;
+  }).join('') : `<div class="text-[13px] text-muted">No upcoming deadlines.</div>`;
+  renderTimeline();
+}
+function renderTimeline(){
+  const H0=7,H1=22,HOUR=62,W=56;
+  const t=todayISO(0);
+  const sched=tasksFor(t).filter(x=>x.start).sort((a,b)=>a.start.localeCompare(b.start));
+  let html=`<div class="relative" style="height:${(H1-H0)*HOUR}px; margin-left:${W}px;" id="tlBody">`;
+  for(let h=H0;h<H1;h++){ html+=`<div class="tl-hour" style="height:${HOUR}px;"><span style="left:-${W}px; width:${W-8}px;">${h%12||12}${h<12?'a':'p'}</span></div>`; }
+  // now line
+  const now=new Date(); const nm=now.getHours()*60+now.getMinutes();
+  if(nm>=H0*60&&nm<=H1*60){ const top=(nm-H0*60)/60*HOUR; html+=`<div class="now-line" style="top:${top}px; left:0;"></div>`; }
+  sched.forEach(x=>{
+    const sm=timeToMin(x.start); const top=(sm-H0*60)/60*HOUR+2; const hgt=Math.max(44,(x.duration/60)*HOUR-5);
+    const c=CATC[x.category]||'#131311';
+    html+=`<div class="task-block ${x.done?'done':''}" style="top:${top}px; height:${hgt}px; left:8px; right:8px; border-left:3px solid ${c};" onclick="openTaskModal('${x.id}')">
+      <div class="flex items-center gap-2"><div class="check !w-[18px] !h-[18px] ${x.done?'done':''}" onclick="event.stopPropagation();toggleTask('${x.id}')">${x.done?'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>':''}</div>
+      <div class="flex-1 min-w-0"><div class="tb-title text-[12.5px] font-bold truncate">${esc(x.title)}</div><div class="text-[11px] text-muted font-medium">${fmt12(x.start)} · ${x.duration}m · <span style="color:${c}">●</span> ${esc(x.category)}</div></div>
+      <span class="dot shrink-0" style="background:${PRIO[x.priority].color}"></span></div></div>`;
+  });
+  html+=`</div><button onclick="openTaskModal()" class="w-full mt-3 text-[12.5px] font-semibold text-muted hover:text-ink border border-dashed border-[#D0CCC4] hover:border-ink rounded-xl py-2.5 transition">+ Click to add a block anywhere in your day</button>`;
+  $('#todayTimeline').innerHTML=html;
+}
+
+/* ============ SCHEDULE ============ */
+function weekDates(){
+  const now=new Date(); const dow=(now.getDay()+6)%7; // Monday start
+  const mon=new Date(now); mon.setDate(now.getDate()-dow+weekOffset*7);
+  return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return isoOf(d); });
+}
+function shiftWeek(n){ weekOffset = n===0?0:weekOffset+n; renderSchedule(); }
+function renderSchedule(){
+  const days=weekDates(); const t=todayISO(0);
+  $('#weekLabel').textContent = weekOffset===0?'This week':`${parseISO(days[0]).toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${parseISO(days[6]).toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
+  const H0=7,H1=22,HOUR=56, totalH=(H1-H0)*HOUR;
+  let html=`<div class="grid" style="grid-template-columns:64px repeat(7,1fr);">
+    <div class="px-3 py-3 text-[11px] font-bold text-muted uppercase tracking-wider">Time</div>`;
+  days.forEach(d=>{
+    const dt=parseISO(d); const isT=d===t;
+    html+=`<div class="px-2 py-2.5 text-center border-l border-line ${isT?'bg-[#F3F1EC]':''}">
+      <div class="text-[11px] font-bold ${isT?'text-ink':'text-muted'} uppercase tracking-wider">${dt.toLocaleDateString('en-US',{weekday:'short'})}</div>
+      <div class="w-8 h-8 mx-auto mt-1 rounded-full flex items-center justify-center text-[14px] font-bold ${isT?'bg-ink text-white':'text-ink'}">${dt.getDate()}</div></div>`;
+  });
+  html+=`</div><div class="grid border-t border-line" style="grid-template-columns:64px repeat(7,1fr);">`;
+  html+=`<div class="relative" style="height:${totalH}px;">`+Array.from({length:H1-H0},(_,i)=>`<div class="text-[10px] font-bold text-[#B9B5AC] text-right pr-3" style="height:${HOUR}px; line-height:20px;">${((H0+i)%12)||12}${(H0+i)<12?'a':'p'}</div>`).join('')+`</div>`;
+  days.forEach(d=>{
+    const isT=d===t;
+    const blocks=state.tasks.filter(x=>x.date===d&&x.start);
+    html+=`<div class="day-col ${isT?'today-col':''}" data-date="${d}" style="height:${totalH}px;" onclick="dayClick(event,'${d}')">`;
+    for(let h=H0;h<H1;h++) html+=`<div class="hour-line" style="height:${HOUR}px;"></div>`;
+    blocks.forEach(x=>{
+      const top=(timeToMin(x.start)-H0*60)/60*HOUR+1; const hgt=Math.max(30,(x.duration/60)*HOUR-3);
+      const c=CATC[x.category]||'#131311';
+      html+=`<div class="sched-block" onclick="event.stopPropagation();openTaskModal('${x.id}')" style="top:${top}px;height:${hgt}px;background:${x.done?'#F3F2EF':c+'12'};border-color:${c}33;color:#131311;${x.done?';opacity:.6':''}" title="${esc(x.title)}">
+        <div class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${c}"></span><span class="truncate ${x.done?'line-through':''}">${esc(x.title)}</span></div>
+        <div class="text-[10px] opacity-60 font-semibold">${fmt12(x.start)} · ${x.duration}m</div></div>`;
+    });
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  $('#weekGrid').innerHTML=html;
+  const allW=state.tasks.filter(x=>days.includes(x.date)&&x.start);
+  const hrs=allW.reduce((a,x)=>a+x.duration,0)/60;
+  const deep=allW.filter(x=>x.category==='Deep Work').reduce((a,x)=>a+x.duration,0)/60;
+  $('#schedHours').textContent=hrs.toFixed(1)+'h'; $('#schedCount').textContent=allW.length;
+  $('#schedDeep').textContent=deep.toFixed(1)+'h'; $('#schedDeepBar').style.width=Math.min(100,deep/12*100)+'%';
+  $('#schedFree').textContent=Math.max(0,(70-hrs)).toFixed(0)+'h';
+}
+function dayClick(e,date){
+  const H0=7,HOUR=56;
+  const rect=e.currentTarget.getBoundingClientRect();
+  const y=e.clientY-rect.top; const mins=H0*60+Math.floor(y/HOUR*60/15)*15;
+  openTaskModal(null,{date,start:minToTime(Math.min(21*60+30,Math.max(7*60,mins)))});
+}
+
+/* ============ PRIORITIES ============ */
+function quadOf(t){
+  if(t.quadrant) return t.quadrant;
+  const urgent = t.priority==='high' || (t.deadline && (parseISO(t.deadline)-parseISO(todayISO(0)))/86400000<=2) || t.date===todayISO(0);
+  const important = t.priority==='high'||t.priority==='medium';
+  if(urgent&&important) return t.priority==='high'?'Q1':'Q2';
+  if(important) return 'Q2';
+  if(urgent) return 'Q3';
+  return 'Q4';
+}
+function renderPriorities(){
+  const mits=state.tasks.filter(x=>x.mit);
+  const cands=state.tasks.filter(x=>!x.mit&&!x.done&&x.priority==='high').slice(0,6);
+  let html='';
+  for(let i=0;i<3;i++){
+    const m=mits[i];
+    html+= m? `<div class="mit-slot filled fade-up" style="animation-delay:${i*70}ms"><div class="flex items-center gap-2 mb-1.5"><span class="text-[10px] font-bold bg-ink text-white rounded-full w-5 h-5 flex items-center justify-center">${i+1}</span><span class="dot" style="background:${PRIO[m.priority].color}"></span><span class="text-[10px] font-bold uppercase tracking-wider text-muted">${esc(m.course)}</span><button onclick="toggleMit('${m.id}')" class="ml-auto text-muted hover:text-ink text-[14px]">×</button></div>
+      <div class="text-[13.5px] font-bold leading-snug cursor-pointer hover:underline" onclick="openTaskModal('${m.id}')">${esc(m.title)}</div>
+      <div class="text-[11.5px] text-muted mt-1">${m.duration}m ${m.start?'· '+fmt12(m.start):'· unscheduled'}</div></div>`
+    : `<div class="mit-slot"><div class="text-[13px] font-semibold text-muted mb-2">Slot ${i+1} — empty</div><select onchange="assignMit(this.value)" class="inp !text-[12px] !py-2"><option value="">+ Assign from high priority…</option>${cands.map(c=>`<option value="${c.id}">${esc(c.title.slice(0,34))}</option>`).join('')}</select></div>`;
+  }
+  $('#mitGrid').innerHTML=html;
+  ['Q1','Q2','Q3','Q4'].forEach(q=>{
+    const items=state.tasks.filter(x=>!x.done&&quadOf(x)===q);
+    $('#quad-'+q).innerHTML = items.length? items.map(x=>`
+      <div class="mini-task" draggable="true" ondragstart="dragTask(event,'${x.id}')" ondragend="this.classList.remove('dragging')" onclick="openTaskModal('${x.id}')">
+        <div class="flex items-center gap-2"><span class="dot shrink-0" style="background:${PRIO[x.priority].color}"></span><span class="font-semibold truncate flex-1">${esc(x.title)}</span></div>
+        <div class="text-[11px] text-muted mt-1 font-medium">${x.duration}m · ${esc(x.course)}${x.date===todayISO(0)?' · Today':x.date?(' · '+fmtShort(x.date)):''}</div>
+      </div>`).join('') : `<div class="text-[12px] text-[#B9B5AC] font-medium text-center py-6 border border-dashed border-line rounded-xl">Drop tasks here</div>`;
+  });
+}
+function dragTask(e,id){ e.dataTransfer.setData('text/plain',id); e.currentTarget.classList.add('dragging'); }
+function dropQuad(e,q){ e.preventDefault(); $$('.quad').forEach(x=>x.classList.remove('drag-over')); const id=e.dataTransfer.getData('text/plain'); const t=state.tasks.find(x=>x.id===id); if(!t) return;
+  t.quadrant=q;
+  if(q==='Q1') t.priority='high'; if(q==='Q2'&&t.priority==='low') t.priority='medium'; if(q==='Q4') t.priority='low';
+  save(); renderAll(); toast(`Moved to <b>${q}</b> — ${q==='Q2'?'good instinct. Protect it.':q==='Q4'?'consider deleting it.':q==='Q1'?'handle it today.':'batch it later.'}`);
+}
+function toggleMit(id){ const t=state.tasks.find(x=>x.id===id); t.mit=!t.mit; save(); renderAll(); }
+function assignMit(id){ if(!id) return; const t=state.tasks.find(x=>x.id===id); t.mit=true; save(); renderAll(); toast('Added to your Top 3'); }
+
+/* ============ HABITS ============ */
+const HICONS=['◉','✎','❝','↗','○','◎','✦','✓','●','⬔'];
+function weekHabitDays(){ return Array.from({length:7},(_,i)=>todayISO(-6+i)); }
+function streakOf(h){ let s=0; let d=0; if(!h.log[todayISO(0)]) d=-1; for(let i=d;;i--){ const k=todayISO(i); if(h.log[k]) s++; else break; if(i<-60) break; } return s; }
+function renderHabits(){
+  const days=weekHabitDays(); const t=todayISO(0);
+  const doneT=state.habits.filter(h=>h.log[t]).length;
+  $('#habitTodayDone').textContent=doneT; $('#habitTotal').textContent=state.habits.length;
+  $('#habitTodayBar').style.width=(state.habits.length?doneT/state.habits.length*100:0)+'%';
+  let best=0,bn='—'; state.habits.forEach(h=>{ const s=streakOf(h); if(s>best){best=s;bn=h.name;} });
+  $('#habitBest').textContent=best; $('#habitBestName').textContent=bn;
+  let tot=0,hit=0; state.habits.forEach(h=>days.forEach(d=>{tot++; if(h.log[d]) hit++;}));
+  $('#habitWeekPct').textContent=Math.round(hit/Math.max(1,tot)*100)+'%';
+  $('#habitList').innerHTML=state.habits.map((h,i)=>{
+    const wk=days.filter(d=>h.log[d]).length; const pct=Math.min(100,Math.round(wk/h.target*100)); const st=streakOf(h);
+    return `<div class="card p-4 lg:p-5 flex flex-col md:flex-row md:items-center gap-4 fade-up" style="animation-delay:${i*60}ms">
+      <div class="flex items-center gap-3 md:w-[260px] shrink-0">
+        <div class="w-11 h-11 rounded-2xl ${h.log[t]?'bg-ink text-white':'bg-paper border border-line'} flex items-center justify-center text-[18px] font-bold transition">${h.icon}</div>
+        <div class="flex-1 min-w-0"><div class="font-bold text-[14.5px] leading-tight">${esc(h.name)}</div><div class="text-[12px] text-muted font-medium mt-0.5">${wk}/${h.target} this week · <span class="font-bold ${st>0?'text-ink':'text-muted'}">${st} day streak</span></div>
+        <div class="pbar sage mt-2"><div style="width:${pct}%"></div></div></div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        ${days.map(d=>{ const dt=parseISO(d); const on=!!h.log[d]; const isT=d===t;
+          return `<div class="flex flex-col items-center gap-1"><button class="habit-dot ${on?'on':''} ${isT?'today':''}" onclick="toggleHabit('${h.id}','${d}')" title="${fmtShort(d)}">${on?'✓':dt.toLocaleDateString('en-US',{weekday:'narrow'})}</button><span class="text-[9px] font-bold ${isT?'text-ink':'text-[#B9B5AC]'}">${dt.getDate()}</span></div>`; }).join('')}
+      </div>
+      <button onclick="deleteHabit('${h.id}')" class="md:ml-auto text-[11px] font-bold text-muted hover:text-clay transition shrink-0">Remove</button>
+    </div>`;
+  }).join('') || `<div class="card p-10 text-center text-muted">No habits yet. Start with one tiny one.</div>`;
+}
+function toggleHabit(id,date){ const h=state.habits.find(x=>x.id===id); h.log[date]=!h.log[date]; save(); renderHabits(); updateCounts();
+  if(h.log[date]&&date===todayISO(0)){ toast(`<b>${esc(h.name)}</b> — checked in`,'✓'); const st=streakOf(h); if(st>=3&&st%3===0) agentSay(`Nice — <b>${esc(h.name)}</b> is now a <b>${st}-day streak</b>. Streaks compound quietly. Keep the chain unbroken.`); }
+}
+function deleteHabit(id){ state.habits=state.habits.filter(x=>x.id!==id); save(); renderAll(); toast('Habit removed'); }
+
+/* ============ FOCUS ============ */
+function fmtMS(s){ return pad(Math.floor(s/60))+':'+pad(s%60); }
+function renderFocusMeta(){
+  const t=todayISO(0);
+  const todays=state.tasks.filter(x=>x.date===t&&!x.done);
+  $('#focusTaskSelect').innerHTML=`<option value="">No task — free focus</option>`+todays.map(x=>`<option value="${x.id}" ${focus.taskId===x.id?'selected':''}>${esc(x.title)} · ${x.duration}m</option>`).join('')+state.tasks.filter(x=>!x.done&&x.date!==t).slice(0,5).map(x=>`<option value="${x.id}">↗ ${esc(x.title)}</option>`).join('');
+  const mins=state.focusSessions.filter(s=>s.date===t).reduce((a,s)=>a+s.minutes,0);
+  const cnt=state.focusSessions.filter(s=>s.date===t).length;
+  $('#focusTodayStat').textContent=mins+'m'; $('#focusSessStat').textContent=cnt;
+  $('#focusGoalBar').style.width=Math.min(100,mins/120*100)+'%';
+  $('#focusHistory').innerHTML=state.focusSessions.slice(-5).reverse().map(s=>`<div class="flex items-center gap-2.5 text-[13px]"><div class="w-8 h-8 rounded-xl bg-paper border border-line flex items-center justify-center font-bold text-[12px]">${s.minutes}<span class="text-[9px] text-muted">m</span></div><div class="flex-1 min-w-0"><div class="font-semibold truncate">${esc(s.label||'Focus session')}</div><div class="text-[11px] text-muted">${fmtShort(s.date)}</div></div></div>`).join('')||'<div class="text-[13px] text-muted">No sessions yet.</div>';
+  updateFocusUI();
+}
+function updateFocusUI(){
+  $('#focusTime').textContent=fmtMS(focus.left);
+  $('#focusRing').style.strokeDashoffset = 553 - (553*focus.left/focus.total);
+  $('#focusState').textContent = focus.running?'Focusing — stay here':(focus.left<focus.total?'Paused':'Ready');
+  $('#focusStart').textContent = focus.running?'Pause':'Start focus';
+}
+$$('.preset').forEach(b=>b.onclick=()=>{ if(focus.running) return; const m=+b.dataset.min; focus.total=m*60; focus.left=m*60; $$('.preset').forEach(x=>x.classList.remove('!bg-ink','!text-white')); b.classList.add('!bg-ink','!text-white'); updateFocusUI(); });
+$('#focusTaskSelect')?.addEventListener?.('change',e=>{});
+function toggleFocus(){
+  focus.taskId=$('#focusTaskSelect').value||null;
+  if(focus.running){ clearInterval(focus.timer); focus.running=false; updateFocusUI(); $('#focusHint').textContent='Paused. Breathe — you can resume anytime.'; return; }
+  focus.running=true; updateFocusUI();
+  $('#focusHint').textContent='Timer running. One thing only — the agent muted the noise.';
+  focus.timer=setInterval(()=>{
+    focus.left--; updateFocusUI();
+    if(focus.left<=0){ completeFocus(); }
+  },1000);
+}
+function resetFocus(){ clearInterval(focus.timer); focus.running=false; focus.left=focus.total; updateFocusUI(); $('#focusHint').textContent='Tip: silence notifications. The agent will guard your time.'; }
+function completeFocus(){
+  clearInterval(focus.timer); focus.running=false;
+  const mins=Math.round(focus.total/60);
+  const task=state.tasks.find(x=>x.id===focus.taskId);
+  state.focusSessions.push({date:todayISO(0),minutes:mins,label:task?task.title:'Free focus'});
+  try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(); const g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=660; g.gain.value=0.08; o.start(); setTimeout(()=>{o.frequency.value=880;},180); setTimeout(()=>{o.stop();ctx.close();},500);}catch(e){}
+  focus.left=focus.total; save(); renderFocusMeta(); updateCounts();
+  toast(`Focus complete — <b>${mins} minutes</b> logged`,'◉');
+  agentSay(`Focus session complete — <b>${mins} minutes</b>${task?` on “${esc(task.title)}”`:''}. Take a 5-minute break: water, stretch, look far away. ${mins>=50?'That was a deep one. Well done.':'Small reps add up.'}`);
+  if(task && confirmDone(task)) toggleTask(task.id,true);
+}
+function confirmDone(task){ return task.duration<=30; }
+
+/* ============ INSIGHTS ============ */
+function renderInsights(){
+  const days=Array.from({length:7},(_,i)=>todayISO(-6+i));
+  const doneAll=state.tasks.filter(x=>x.done).length, all=state.tasks.length;
+  const comp=all?Math.round(doneAll/all*100):0;
+  const fmins=state.focusSessions.filter(s=>days.includes(s.date)).reduce((a,s)=>a+s.minutes,0);
+  let hTot=0,hHit=0; state.habits.forEach(h=>days.forEach(d=>{hTot++; if(h.log[d])hHit++;}));
+  const hPct=Math.round(hHit/Math.max(1,hTot)*100);
+  const deepM=state.tasks.filter(x=>x.done&&x.category==='Deep Work').reduce((a,x)=>a+x.duration,0);
+  $('#insightStats').innerHTML=[
+    {l:'Completion rate',v:comp+'%',s:`${doneAll} of ${all} tasks done`,w:comp},
+    {l:'Focus time · 7d',v:(fmins/60).toFixed(1)+'h',s:`${state.focusSessions.filter(s=>days.includes(s.date)).length} sessions`,w:Math.min(100,fmins/840*100)},
+    {l:'Habit adherence',v:hPct+'%',s:'across all habits',w:hPct},
+    {l:'Deep work done',v:Math.round(deepM/60*10)/10+'h',s:'logged via tasks',w:Math.min(100,deepM/720*100)},
+  ].map(x=>`<div class="card p-4"><div class="micro mb-1">${x.l}</div><div class="stat-num text-[28px]">${x.v}</div><div class="text-[12px] text-muted">${x.s}</div><div class="pbar mt-2"><div style="width:${x.w}%"></div></div></div>`).join('');
+  // notes
+  const notes=[];
+  if(comp>=70) notes.push({t:'You finish what you start. Completion is strong — protect that by capping daily tasks at 5.',c:'#4A6741'});
+  else if(comp<40) notes.push({t:'Completion is low. That usually means over-planning, not under-working. Try fewer, smaller tasks.',c:'#C14A2E'});
+  else notes.push({t:'Steady pace. Your best days have 3 or fewer priorities — keep the Top 3 ritual.',c:'#131311'});
+  if(fmins<180) notes.push({t:'Focus time is light this week. Even one 25-minute session before noon changes the day.',c:'#9A7B2E'});
+  else notes.push({t:`${(fmins/60).toFixed(1)}h of focus this week — that is real depth. Your afternoons look strongest.`,c:'#4A6741'});
+  if(hPct>=70) notes.push({t:'Habits are compounding. Consider adding one “stretch” habit next week.',c:'#4A6741'});
+  else notes.push({t:'Habits are wobbly. Shrink them: 2-minute versions still count toward the streak.',c:'#9A7B2E'});
+  $('#insightNotes').innerHTML=notes.map(n=>`<div class="flex gap-2.5 bg-paper border border-line rounded-xl p-3"><span class="w-2 h-2 rounded-full mt-1.5 shrink-0" style="background:${n.c}"></span><span>${n.t}</span></div>`).join('');
+  // charts
+  Object.values(charts).forEach(c=>c&&c.destroy()); charts={};
+  Chart.defaults.font.family='Inter'; Chart.defaults.color='#7A776F'; Chart.defaults.font.size=11;
+  const cats=['Deep Work','Class','Admin','Personal','Health'];
+  const catMins=cats.map(c=>state.tasks.filter(x=>x.category===c).reduce((a,x)=>a+x.duration,0));
+  charts.c=new Chart($('#chartCategory'),{type:'doughnut',data:{labels:cats,datasets:[{data:catMins,backgroundColor:['#131311','#4A6741','#9A7B2E','#C14A2E','#D8D5CE'],borderWidth:0,hoverOffset:6}]},options:{cutout:'62%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,boxHeight:10,borderRadius:99,usePointStyle:true,padding:14,font:{weight:600}}}},maintainAspectRatio:false}});
+  const labels=days.map(d=>parseISO(d).toLocaleDateString('en-US',{weekday:'short'}));
+  const fdata=days.map(d=>+(state.focusSessions.filter(s=>s.date===d).reduce((a,s)=>a+s.minutes,0)/60).toFixed(1));
+  charts.f=new Chart($('#chartFocus'),{type:'bar',data:{labels,datasets:[{data:fdata,backgroundColor:labels.map((_,i)=>i===6?'#131311':'#E3E0D8'),borderRadius:8,barThickness:22}]},options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'#F0EEE9'},ticks:{callback:v=>v+'h'}},x:{grid:{display:false}}},maintainAspectRatio:false}});
+  const trend=days.map((d,i)=> 40+Math.round(Math.sin(i/1.4)*18+ (state.tasks.filter(x=>x.done).length*4 + i*3)%30 ));
+  charts.t=new Chart($('#chartTrend'),{type:'line',data:{labels,datasets:[{data:trend,borderColor:'#131311',backgroundColor:'rgba(19,19,17,0.06)',fill:true,tension:.45,pointRadius:3,pointBackgroundColor:'#131311',borderWidth:2}]},options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100,grid:{color:'#F0EEE9'},ticks:{callback:v=>v+'%'}},x:{grid:{display:false}}},maintainAspectRatio:false}});
+}
+
+/* ============ TASK CRUD ============ */
+function openTaskModal(id,preset){
+  editingTaskId=id||null; selectedPrio='medium';
+  $('#taskModalTitle').textContent=id?'Edit task':'New task';
+  $('#mDelete').classList.toggle('hidden',!id);
+  if(id){ const t=state.tasks.find(x=>x.id===id); $('#mTitle').value=t.title; $('#mCourse').value=t.course; $('#mCategory').value=t.category; $('#mDate').value=t.date||todayISO(0); $('#mStart').value=t.start||'09:00'; $('#mDuration').value=String(t.duration); $('#mUnscheduled').checked=!t.start; $('#mMit').checked=!!t.mit; $('#mNotes').value=t.notes||''; selectedPrio=t.priority; }
+  else{ $('#mTitle').value=''; $('#mCourse').value='Calculus'; $('#mCategory').value='Deep Work'; $('#mDate').value=(preset&&preset.date)||todayISO(0); $('#mStart').value=(preset&&preset.start)||'09:00'; $('#mDuration').value='60'; $('#mUnscheduled').checked=!(preset&&preset.start); $('#mMit').checked=false; $('#mNotes').value=''; }
+  paintPrio(); $('#taskModal').classList.remove('hidden'); setTimeout(()=>$('#mTitle').focus(),80);
+}
+function closeTaskModal(){ $('#taskModal').classList.add('hidden'); editingTaskId=null; }
+function paintPrio(){ $$('#mPrioRow .prio-btn').forEach(b=>{ b.className='prio-btn'+(b.dataset.p===selectedPrio?' sel-'+selectedPrio:''); }); }
+$$('#mPrioRow .prio-btn').forEach(b=>b.onclick=()=>{selectedPrio=b.dataset.p; paintPrio();});
+function saveTask(){
+  const title=$('#mTitle').value.trim(); if(!title){ toast('Give the task a title first','!'); $('#mTitle').focus(); return; }
+  const data={title,course:$('#mCourse').value,category:$('#mCategory').value,date:$('#mDate').value||todayISO(0),start:$('#mUnscheduled').checked?null:($('#mStart').value||'09:00'),duration:+$('#mDuration').value,priority:selectedPrio,mit:$('#mMit').checked,notes:$('#mNotes').value.trim()};
+  if(editingTaskId){ Object.assign(state.tasks.find(x=>x.id===editingTaskId),data); toast('Task updated'); }
+  else{ state.tasks.push(Object.assign({id:uid(),done:false,quadrant:null,deadline:null},data)); toast(`<b>${esc(title.slice(0,32))}</b> added`,'+'); }
+  // cap MIT at 3
+  const mits=state.tasks.filter(x=>x.mit&&!x.done); if(mits.length>3){ mits.slice(3).forEach(x=>x.mit=false); }
+  save(); closeTaskModal(); renderAll();
+}
+function deleteTask(){ if(!editingTaskId) return; state.tasks=state.tasks.filter(x=>x.id!==editingTaskId); save(); closeTaskModal(); renderAll(); toast('Task deleted'); }
+function toggleTask(id,silent){
+  const t=state.tasks.find(x=>x.id===id); if(!t) return; t.done=!t.done;
+  if(t.done){ t.mit=false; save(); renderAll(); if(!silent){ toast(`Done — <b>${esc(t.title.slice(0,30))}</b>`,'✓'); maybeCelebrate(); } }
+  else{ save(); renderAll(); }
+}
+function maybeCelebrate(){
+  const left=tasksFor(todayISO(0)).filter(x=>!x.done).length;
+  if(left===0) agentSay(`Inbox clear. Every task today is done — that is rare. Close the laptop, take a walk, and let today end <i>done</i>. Tomorrow is already lighter.`);
+  else if(left<=2) agentSay(`Only <b>${left} to go</b> today. Finish with the smallest one next — momentum loves small wins.`);
+}
+function scheduleTask(id){
+  const t=state.tasks.find(x=>x.id===id); const slot=findFreeSlot(t.duration,todayISO(0));
+  if(slot){ t.start=slot; t.date=todayISO(0); save(); renderAll(); toast(`Scheduled at <b>${fmt12(slot)}</b>`); }
+  else toast('No free slot today — try tomorrow','!');
+}
+function findFreeSlot(dur,date,fromMin){
+  const H0=7*60,H1=22*60;
+  const occ=state.tasks.filter(x=>x.date===date&&x.start).map(x=>({s:timeToMin(x.start),e:timeToMin(x.start)+x.duration})).sort((a,b)=>a.s-b.s);
+  let start=fromMin||Math.max(H0, new Date().getHours()*60+new Date().getMinutes()+15);
+  start=Math.ceil(start/15)*15;
+  for(let s=start;s+dur<=H1;s+=15){
+    const e=s+dur+10;
+    if(!occ.some(o=>s<o.e&&e>o.s)) return minToTime(s);
+  }
+  return null;
+}
+
+/* ============ HABIT MODAL ============ */
+function openHabitModal(){ $('#hName').value=''; $('#hTarget').value='7'; selectedHabitIcon='◐';
+  $('#hIconRow').innerHTML=HICONS.map(i=>`<button onclick="pickHIcon('${i}',this)" class="hicon w-10 h-10 rounded-xl border text-[16px] font-bold transition ${i===selectedHabitIcon?'bg-ink text-white border-ink':'bg-white border-line hover:border-ink'}">${i}</button>`).join('');
+  $('#habitModal').classList.remove('hidden'); setTimeout(()=>$('#hName').focus(),80);
+}
+function pickHIcon(i,el){ selectedHabitIcon=i; $$('#hIconRow .hicon').forEach(b=>b.className='hicon w-10 h-10 rounded-xl border text-[16px] font-bold transition bg-white border-line hover:border-ink'); el.className='hicon w-10 h-10 rounded-xl border text-[16px] font-bold transition bg-ink text-white border-ink'; }
+function closeHabitModal(){ $('#habitModal').classList.add('hidden'); }
+function saveHabit(){ const n=$('#hName').value.trim(); if(!n){ toast('Name your habit first','!'); return; } state.habits.push({id:uid(),name:n,icon:selectedHabitIcon,target:+$('#hTarget').value,log:{}}); save(); closeHabitModal(); renderAll(); toast(`Habit created — <b>${esc(n.slice(0,28))}</b>`,'◉'); agentSay(`New habit locked in: <b>${esc(n)}</b>. Start with 2 minutes today — check it in to begin the streak. I will keep the chain visible.`); }
+
+/* ============ AGENT ============ */
+function renderAgent(){
+  const html=state.agent.map(m=> m.role==='user'
+    ? `<div class="bubble-user fade-up">${m.text}</div>`
+    : `<div class="bubble-agent fade-up">${m.text}${m.actions?`<div class="flex flex-wrap gap-2 mt-2.5">${m.actions.map(a=>`<button class="action-btn ${a.primary?'primary':'secondary'}" onclick="agentAction('${a.id}')">${a.label}</button>`).join('')}</div>`:''}</div>`
+  ).join('');
+  $('#agentMessages').innerHTML=html; $('#agentMessagesM').innerHTML=html;
+  ['#agentMessages','#agentMessagesM'].forEach(s=>{ const el=$(s); el.scrollTop=el.scrollHeight; });
+  updateBrief();
+}
+function updateBrief(){
+  const t=todayISO(0); const open=tasksFor(t).filter(x=>!x.done);
+  const mins=open.reduce((a,x)=>a+x.duration,0);
+  $('#agentBriefLine').innerHTML = open.length? `<b>${open.length} tasks</b> · ~${Math.floor(mins/60)}h ${mins%60}m planned · <b>${state.habits.filter(h=>!h.log[t]).length} habits</b> pending. ${open.filter(x=>x.priority==='high').length>3?'Heavy on highs — I can lighten it.':'A calm, doable day.'}` : `All clear today. Use the space for rest or get-ahead work.`;
+}
+function agentSay(text,actions){ state.agent.push({role:'agent',text,actions}); save(); renderAgent(); }
+function agentTyping(cb,delay=900){
+  ['#agentMessages','#agentMessagesM'].forEach(s=>{ const d=document.createElement('div'); d.className='typing-dots'; d.id='typing'+s; d.innerHTML='<span></span><span></span><span></span>'; $(s).appendChild(d); $(s).scrollTop=$(s).scrollHeight; });
+  setTimeout(()=>{ $$('.typing-dots').forEach(x=>x.remove()); cb(); },delay);
+}
+function quickAsk(q){ const inp = $('#agentMobile').classList.contains('hidden')? $('#agentInput'):$('#agentInputM'); inp.value=q; sendAgent(!$('#agentMobile').classList.contains('hidden')); }
+function sendAgent(mobile){
+  const inp=mobile?$('#agentInputM'):$('#agentInput');
+  const txt=inp.value.trim(); if(!txt) return; inp.value=''; inp.style.height='auto';
+  state.agent.push({role:'user',text:esc(txt)}); save(); renderAgent();
+  agentTyping(()=>agentBrain(txt), 800+Math.min(900,txt.length*8));
+}
+[$('#agentInput'),$('#agentInputM')].forEach(el=>{ if(!el) return; el.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendAgent(el.id==='agentInputM'); } }); el.addEventListener('input',()=>{ el.style.height='auto'; el.style.height=Math.min(100,el.scrollHeight)+'px'; }); });
+
+let pendingPlan=null, pendingExam=null;
+function agentBrain(raw){
+  const q=raw.toLowerCase();
+  const num=(q.match(/(\d+)\s*(day|chapter|ch\b|page|hour|hr|task)?/)||[])[1];
+  if(q.includes('plan')&&(q.includes('day')||q.includes('today')||q.includes('schedule')||q.includes('week'))||q==='plan my day'){
+    return doAutoPlan(true);
+  }
+  if(q.includes('exam')||q.includes('test')||q.includes('midterm')||q.includes('final')){
+    const days=num?Math.min(14,Math.max(1,+num)):4;
+    const subj=(['calculus','physics','history','literature','biology','cs','computer','chemistry','econ'].find(s=>q.includes(s))||'your subject');
+    const nice=subj==='cs'?'Computer Science':subj.charAt(0).toUpperCase()+subj.slice(1);
+    pendingExam={subject:nice,days};
+    const per=Math.max(1,Math.round(5/days));
+    agentSay(`Here is a calm <b>${days}-day plan for ${esc(nice)}</b> — spaced, not crammed:<div class="action-card text-[12.5px] leading-relaxed">
+      ${Array.from({length:days},(_,i)=>{ const d=todayISO(i); const label=i===0?'Today':i===1?'Tomorrow':fmtShort(d);
+        const what=i===days-1?'<b>Mock exam + light review</b> (90m)':i===days-2?'<b>Weak spots + flashcards</b> (75m)':`<b>Study block ${i+1}</b> — ${per} units + recall (60m)`;
+        return `<div class="flex gap-2 py-1 ${i<days-1?'border-b border-line':''}"><span class="font-bold w-[70px] shrink-0">${label}</span><span>${what}</span></div>`; }).join('')}
+      </div><div class="text-[12px] text-muted mt-2">Mornings for new material, evenings for recall. Want me to schedule it?</div>`,
+      [{id:'exam-yes',label:'Schedule it',primary:true},{id:'exam-no',label:'Not now'}]);
+    return;
+  }
+  if(q.includes('overwhelm')||q.includes('stressed')||q.includes('too much')||q.includes('behind')){
+    const lows=state.tasks.filter(x=>!x.done&&x.priority==='low');
+    agentSay(`Overwhelm usually means <b>too many highs</b>, not too little effort. Right now you have <b>${state.tasks.filter(x=>!x.done&&x.priority==='high').length} high-priority</b> items.<br><br>My suggestion: keep your Top 3, push <b>${lows.length} low-priority</b> items to tomorrow, and do one 25-minute focus block. Smallest first.`,[{id:'calm-yes',label:'Lighten today',primary:true},{id:'focus-go',label:'Start 25m focus'}]);
+    return;
+  }
+  if(q.includes('break')||q.includes('essay')||q.includes('outline')||q.includes('project')){
+    agentSay(`Big tasks shrink when split. For your essay, I suggest 5 steps:<div class="action-card text-[12.5px]">1. <b>Research + 5 sources</b> — 45m<br>2. <b>Thesis + outline</b> — 30m<br>3. <b>Rough draft</b> — 60m<br>4. <b>Revise arguments</b> — 45m<br>5. <b>Proofread + submit</b> — 25m</div><div class="text-[12px] text-muted mt-2">Want me to add these as scheduled blocks across the next 3 days?</div>`,[{id:'essay-yes',label:'Add breakdown',primary:true},{id:'exam-no',label:'Later'}]);
+    return;
+  }
+  if(q.includes('habit')||q.includes('routine')||q.includes('consistent')||q.includes('discipline')){
+    agentSay(`Best student habits are <b>tiny + attached</b> to something existing. Pick one:<div class="action-card text-[12.5px]">· <b>After coffee →</b> review notes 10m<br>· <b>After lunch →</b> Anki 5m<br>· <b>After dinner →</b> plan tomorrow 5m</div>`,[{id:'habit-review',label:'Add “Review notes”'},{id:'habit-plan',label:'Add “Plan tomorrow”'},{id:'habit-open',label:'Custom…',primary:true}]);
+    return;
+  }
+  if(q.includes('focus')||q.includes('pomodoro')||q.includes('concentrate')||q.includes('distract')){
+    agentSay(`Let us do this properly: <b>one task, 25 minutes, phone away</b>. I suggest your highest-priority open task. Ready?`,[{id:'focus-go',label:'Start focus now',primary:true}]);
+    return;
+  }
+  if(q.includes('priorit')||q.includes('rank')||q.includes('important')||q.includes('top 3')){
+    return agentPrioritize(true);
+  }
+  if(q.includes('brief')||q.includes('summary')||q.includes('today')&&q.length<20){ return agentBrief(); }
+  if(q.includes('thank')){ agentSay(`Always. Keep going — steady beats intense. I am here when the week gets loud.`); return; }
+  if(q.includes('add')||q.includes('remind')||q.includes('todo')||q.includes('task')){
+    agentSay(`I can add that. What is the task, and roughly how long? <span class="text-muted">(e.g. “Read ch.5, 40 minutes, tomorrow”)</span><br><br>Or use the quick form:`,[{id:'task-open',label:'Open task form',primary:true}]);
+    return;
+  }
+  if(q.includes('hi')||q.includes('hello')||q.includes('hey')){ agentSay(`Hello. Today is <b>${fmtShort(todayISO(0))}</b>. You have <b>${tasksFor(todayISO(0)).filter(x=>!x.done).length} open tasks</b> and <b>${state.habits.filter(h=>!h.log[todayISO(0)]).length} habits</b> left. What feels most pressing?`); return; }
+  // fallback: smart generic with action
+  agentSay(`Got it. Here is what I can do right now:<br>· <b>Plan your day</b> around energy + deadlines<br>· <b>Rank priorities</b> into a Top 3<br>· <b>Schedule</b> anything from your inbox<br><br>Tell me more — a deadline, an exam, or just say “plan my day”.`,[{id:'plan-go',label:'Plan my day',primary:true},{id:'prio-go',label:'Rank priorities'}]);
+}
+function agentAction(id){
+  if(id==='plan-go') return doAutoPlan(true);
+  if(id==='prio-go') return agentPrioritize(true);
+  if(id==='focus-go'){ switchView('focus'); toggleAgentMobileClose(); if(!focus.running) toggleFocus(); toast('Focus started — one thing only','◉'); return; }
+  if(id==='task-open'){ openTaskModal(); return; }
+  if(id==='habit-open'){ openHabitModal(); return; }
+  if(id==='exam-no'){ agentSay(`No problem. The plan is saved in my memory — say <b>“schedule my exam plan”</b> anytime.`); return; }
+  if(id==='exam-yes'&&pendingExam){
+    const {subject,days}=pendingExam;
+    for(let i=0;i<days;i++){
+      const last=i===days-1, second=i===days-2;
+      state.tasks.push({id:uid(),title:last?`${subject} — mock exam + review`:second?`${subject} — weak spots + flashcards`:`${subject} — study block ${i+1} + recall`,course:subject.length>14?'General':subject,category:'Deep Work',duration:last?90:second?75:60,priority:'high',date:todayISO(i),start:i===0?(findFreeSlot(60,todayISO(0))||'16:00'):'10:00',done:false,mit:i===0,quadrant:'Q1',notes:'Exam prep — spaced repetition',deadline:todayISO(days-1)});
+    }
+    pendingExam=null; save(); renderAll();
+    agentSay(`Done — <b>${days} study blocks</b> scheduled, ending with a mock exam the day before. Mornings, high priority, Top 3 updated. You have got this — steady daily reps beat one long night.`,[{id:'view-sched',label:'View schedule'}]);
+    toast('Exam plan scheduled'); return;
+  }
+  if(id==='view-sched'){ switchView('schedule'); return; }
+  if(id==='calm-yes'){
+    state.tasks.filter(x=>!x.done&&x.priority==='low'&&x.date===todayISO(0)).forEach(x=>{ x.date=todayISO(1); x.start=null; });
+    save(); renderAll(); agentSay(`Lightened. Low-priority items moved to <b>tomorrow</b>, inbox cleared. Your today is now <b>${tasksFor(todayISO(0)).filter(x=>!x.done).length} tasks</b>. Start with the smallest high — then tell me when it is done.`); toast('Today lightened'); return;
+  }
+  if(id==='essay-yes'){
+    const steps=[['Research + collect 5 sources',45,0],['Thesis + outline',30,0],['Rough draft',60,1],['Revise arguments',45,2],['Proofread + submit',25,2]];
+    steps.forEach(([t,d,off],i)=>state.tasks.push({id:uid(),title:'Essay — '+t,course:'History',category:'Deep Work',duration:d,priority:i<2?'high':'medium',date:todayISO(off),start:null,done:false,mit:false,quadrant:'Q2',notes:'Essay breakdown',deadline:todayISO(2)}));
+    save(); renderAll(); agentSay(`Added <b>5 essay steps</b> across 3 days. They are in your inbox — say <b>“plan my day”</b> and I will slot them in.`); toast('Essay broken into 5 steps'); return;
+  }
+  if(id==='habit-review'){ state.habits.push({id:uid(),name:'Review notes 10 min',icon:'✎',target:7,log:{}}); save(); renderAll(); agentSay(`Added <b>Review notes 10 min</b> — daily. After coffee is the best trigger. Check in today to start the streak.`); return; }
+  if(id==='habit-plan'){ state.habits.push({id:uid(),name:'Plan tomorrow 5 min',icon:'◎',target:7,log:{}}); save(); renderAll(); agentSay(`Added <b>Plan tomorrow 5 min</b> — daily. Five quiet minutes tonight saves thirty tomorrow.`); return; }
+  if(id==='accept-plan'&&pendingPlan){
+    pendingPlan.forEach(p=>{ const t=state.tasks.find(x=>x.id===p.id); if(t){ t.start=p.start; t.date=todayISO(0); } });
+    pendingPlan=null; save(); renderAll(); agentSay(`Locked in. Your day is now time-blocked with breaks. Work the blocks in order — and protect the whitespace between them.`); toast('Day plan applied'); return;
+  }
+  if(id==='plan-tweak'){ agentSay(`Tell me what to change — e.g. <i>“move gym earlier”</i> or <i>“nothing before 10”</i> — and I will re-arrange.`); return; }
+}
+function doAutoPlan(fromAgent){
+  const t=todayISO(0);
+  const open=state.tasks.filter(x=>!x.done&&x.date===t&&!x.start);
+  const order={high:0,medium:1,low:2};
+  open.sort((a,b)=>order[a.priority]-order[b.priority]||b.duration-a.duration);
+  // energy ordering: highs first for morning, etc.
+  const occ=state.tasks.filter(x=>x.date===t&&x.start).map(x=>({s:timeToMin(x.start),e:timeToMin(x.start)+x.duration}));
+  let cursor = state.energy==='evening'? 11*60 : state.energy==='afternoon'? 9*60+30 : 8*60+30;
+  const nowMin=new Date().getHours()*60+new Date().getMinutes()+10; cursor=Math.max(cursor,Math.ceil(nowMin/15)*15);
+  const plan=[];
+  open.forEach(task=>{
+    for(let s=cursor;s+task.duration<=22*60;s+=15){
+      const e=s+task.duration+10;
+      const clash=occ.some(o=>s<o.e&&e>o.s)||plan.some(p=>{const ps=timeToMin(p.start),pe=ps+p.dur+10; return s<pe&&e>ps;});
+      if(!clash){ plan.push({id:task.id,start:minToTime(s),dur:task.duration,title:task.title}); cursor=s+task.duration+15; break; }
+    }
+  });
+  if(!plan.length){ const msg=`Your day is already fully blocked — <b>${tasksFor(t).filter(x=>x.start).length} blocks</b>. That is enough. If something must move, tell me what matters most.`; fromAgent?agentSay(msg):toast('Day already fully planned'); return; }
+  pendingPlan=plan;
+  const listHtml=plan.map(p=>`<div class="flex gap-2 py-1 border-b border-line last:border-0"><span class="font-bold w-[72px] shrink-0">${fmt12(p.start)}</span><span class="truncate">${esc(p.title)}</span></div>`).join('');
+  const msg=`I arranged <b>${plan.length} tasks</b> around your ${state.energy} energy and existing blocks:<div class="action-card text-[12.5px]">${listHtml}</div><div class="text-[12px] text-muted mt-2">Highs first, 10-minute buffers included. Apply it?</div>`;
+  if(fromAgent){ agentSay(msg,[{id:'accept-plan',label:'Apply plan',primary:true},{id:'plan-tweak',label:'Tweak'}]); }
+  else{ pendingPlan.forEach(p=>{ const x=state.tasks.find(t=>t.id===p.id); x.start=p.start; }); pendingPlan=null; save(); renderAll(); toast('Day auto-planned'); agentSay(`I auto-planned your day — <b>${plan.length} blocks</b> placed. Work them in order.`); }
+}
+function triggerAutoPlan(){
+  if($('#agentPanel').classList.contains('hidden')&&window.innerWidth>=1024) toggleAgent();
+  state.agent.push({role:'user',text:'Plan my day'}); renderAgent();
+  agentTyping(()=>doAutoPlan(true),900);
+}
+function agentPrioritize(fromAgent){
+  const open=state.tasks.filter(x=>!x.done);
+  const score=x=> (x.priority==='high'?3:x.priority==='medium'?2:1)*10 + (x.deadline?(14-Math.max(0,(parseISO(x.deadline)-parseISO(todayISO(0)))/86400000)):5) + (x.category==='Deep Work'?2:0);
+  const ranked=[...open].sort((a,b)=>score(b)-score(a));
+  state.tasks.forEach(x=>x.mit=false);
+  ranked.slice(0,3).forEach(x=>x.mit=true);
+  save(); renderAll();
+  const html=ranked.slice(0,3).map((x,i)=>`<div class="flex gap-2 py-1 border-b border-line last:border-0"><span class="font-bold w-5">${i+1}.</span><span class="flex-1 truncate">${esc(x.title)}</span><span class="font-bold" style="color:${PRIO[x.priority].color}">${PRIO[x.priority].label}</span></div>`).join('');
+  agentSay(`Ranked by <b>deadline × importance × depth</b>. Your new Top 3:<div class="action-card text-[12.5px]">${html}</div><div class="text-[12px] text-muted mt-2">Everything else can wait. Do #1 before checking messages.</div>`,[{id:'focus-go',label:'Start #1 now',primary:true}]);
+}
+function agentHabitCoach(){ switchView('habits'); agentSay(`Habit check: you are at <b>${state.habits.filter(h=>h.log[todayISO(0)]).length}/${state.habits.length}</b> today. The rule is <b>never miss twice</b>. Pick the smallest unchecked habit and do 2 minutes now — then tap it done.`); if(window.innerWidth<1024) toggleAgentMobile(); else if($('#agentPanel').classList.contains('hidden')) toggleAgent(); }
+function agentBrief(){
+  const t=todayISO(0); const open=tasksFor(t).filter(x=>!x.done);
+  const highs=open.filter(x=>x.priority==='high');
+  agentSay(`<b>Daily brief — ${fmtShort(t)}</b><br><br>· <b>${open.length} tasks</b>, ${highs.length} high-priority<br>· Deepest work: <b>${open.find(x=>x.category==='Deep Work'&&!x.done)?esc(open.find(x=>x.category==='Deep Work'&&!x.done).title.slice(0,36)):'—'}</b><br>· Habits: <b>${state.habits.filter(h=>h.log[t]).length}/${state.habits.length}</b> done<br>· Focus so far: <b>${state.focusSessions.filter(s=>s.date===t).reduce((a,s)=>a+s.minutes,0)}m</b><br><br>${highs.length>3?'Today is heavy — I suggest lightening it.':'A focused, finishable day. Start with #1.'}`,[{id:'plan-go',label:'Plan my day',primary:true},{id:'prio-go',label:'Rank Top 3'}]);
+}
+function toggleAgent(){ const p=$('#agentPanel'); p.classList.toggle('hidden'); p.classList.toggle('lg:flex'); }
+function toggleAgentMobile(){ const m=$('#agentMobile'); m.classList.toggle('hidden'); if(!m.classList.contains('hidden')){ renderAgent(); setTimeout(()=>$('#agentInputM').focus(),100); } }
+function toggleAgentMobileClose(){ $('#agentMobile').classList.add('hidden'); }
+
+/* ============ PALETTE ============ */
+let palSel=0, palItems=[];
+function openPalette(){ $('#palette').classList.remove('hidden'); $('#paletteInput').value=''; renderPalette(''); setTimeout(()=>$('#paletteInput').focus(),60); }
+function closePalette(){ $('#palette').classList.add('hidden'); }
+$('#paletteInput').addEventListener('input',e=>renderPalette(e.target.value));
+$('#paletteInput').addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'){ e.preventDefault(); palSel=Math.min(palItems.length-1,palSel+1); paintPal(); }
+  if(e.key==='ArrowUp'){ e.preventDefault(); palSel=Math.max(0,palSel-1); paintPal(); }
+  if(e.key==='Enter'&&palItems[palSel]){ palItems[palSel].fn(); closePalette(); }
+});
+function renderPalette(q){
+  q=q.toLowerCase();
+  const cmds=[
+    {t:'Go to Today',h:'view',fn:()=>switchView('today')},{t:'Go to Schedule',h:'view',fn:()=>switchView('schedule')},
+    {t:'Go to Priorities',h:'view',fn:()=>switchView('priorities')},{t:'Go to Habits',h:'view',fn:()=>switchView('habits')},
+    {t:'Go to Focus',h:'view',fn:()=>switchView('focus')},{t:'Go to Insights',h:'view',fn:()=>switchView('insights')},
+    {t:'New task',h:'N',fn:()=>openTaskModal()},{t:'New habit',h:'H',fn:()=>openHabitModal()},
+    {t:'Auto-plan my day',h:'⌘P',fn:()=>triggerAutoPlan()},{t:'Ask agent for brief',h:'agent',fn:()=>{toggleAgentShow();agentBrief();}},
+    {t:'Start focus session',h:'F',fn:()=>{switchView('focus'); if(!focus.running)toggleFocus();}},
+  ];
+  const tHits=state.tasks.filter(x=>!x.done&&x.title.toLowerCase().includes(q)).slice(0,5).map(x=>({t:'✓ '+x.title,h:x.duration+'m',fn:()=>toggleTask(x.id)}));
+  palItems=[...cmds.filter(c=>c.t.toLowerCase().includes(q)),...tHits].slice(0,9);
+  palSel=0; paintPal();
+}
+function paintPal(){ $('#paletteList').innerHTML=palItems.map((c,i)=>`<div class="pal-item ${i===palSel?'sel':''}" onclick="palItems[${i}].fn();closePalette();"><span>${esc(c.t)}</span><span class="pal-hint">${c.h}</span></div>`).join('')||'<div class="p-6 text-center text-[13px] text-muted">No matches. Press Enter to create it as a task.</div>'; }
+function toggleAgentShow(){ if(window.innerWidth>=1024){ $('#agentPanel').classList.remove('hidden'); $('#agentPanel').classList.add('lg:flex'); } else toggleAgentMobile(); }
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); $('#palette').classList.contains('hidden')?openPalette():closePalette(); }
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='p'){ e.preventDefault(); triggerAutoPlan(); }
+  if(e.key==='Escape'){ closePalette(); closeTaskModal(); closeHabitModal(); }
+  if(document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){
+    if(e.key.toLowerCase()==='n') openTaskModal();
+    if(['1','2','3','4','5','6'].includes(e.key)) switchView(['today','schedule','priorities','habits','focus','insights'][+e.key-1]);
+  }
+});
+
+/* ============ CLOCK / ENERGY / INIT ============ */
+function tick(){
+  const n=new Date();
+  $('#clockNow').textContent=n.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const h=n.getHours();
+  $('#greeting').textContent=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+}
+function paintEnergy(){ $$('#energyPicker .energy-opt').forEach(o=>o.classList.toggle('sel',o.dataset.e===state.energy)); }
+$$('#energyPicker .energy-opt').forEach(o=>o.onclick=()=>{ state.energy=o.dataset.e; save(); paintEnergy(); toast(`Energy set to <b>${o.dataset.e}</b> — plans will adapt`); });
+
+function renderAll(){ updateCounts(); renderToday(); renderSchedule(); renderPriorities(); renderHabits(); renderFocusMeta(); updateBrief(); save(); if(currentView==='insights') renderInsights(); }
+
+function init(){
+  state=load()||seed();
+  const t=todayISO(0);
+  $('#topDate').textContent=fmtLong(t);
+  $('#todayKicker').textContent=fmtLong(t);
+  $('#greetName').textContent=state.name.split(' ')[0];
+  $('#userName').textContent=state.name;
+  $('#avatarInit').textContent=state.name.split(' ').map(x=>x[0]).join('').slice(0,2);
+  paintEnergy(); renderAll(); renderAgent(); tick(); setInterval(tick,15000);
+  setInterval(()=>{ if(currentView==='today') renderTimeline(); },60000);
+  if(!state.briefed){
+    state.briefed=true; save();
+    setTimeout(()=>agentTyping(()=>agentSay(`Welcome back, <b>${esc(state.name.split(' ')[0])}</b>. I reviewed your week:<br><br>· <b>${tasksFor(t).filter(x=>!x.done).length} tasks</b> today, ${tasksFor(t).filter(x=>!x.start&&!x.done).length} unscheduled<br>· <b>${state.tasks.filter(x=>x.deadline&&!x.done).length} deadlines</b> on the horizon<br>· Habits at <b>${state.habits.filter(h=>h.log[t]).length}/${state.habits.length}</b><br><br>Say <b>“plan my day”</b> and I will arrange everything around your ${state.energy} peak — or tell me what is weighing on you.`),1200);
+    setTimeout(()=>toast('Press <b>⌘K</b> for commands · <b>N</b> for new task','⌘'),2200);
+  }
+}
+init();
+</script>
+</body>
+</html>
